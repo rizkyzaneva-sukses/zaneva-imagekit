@@ -474,6 +474,7 @@ def resize_delete_output(output_id):
 # ─── Entry point ───
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+# Easypanel sets PORT=80, use it if available
     for p in [port, port + 1, port + 2]:
         try:
             print(f"[ImageKit] Starting on port {p}...")
