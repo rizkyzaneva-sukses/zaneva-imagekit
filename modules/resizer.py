@@ -161,7 +161,10 @@ def process_image(
                 "size_kb": size_kb,
             })
 
-        in_path.unlink(missing_ok=True)
+        try:
+            in_path.unlink(missing_ok=True)
+        except OSError:
+            pass  # input masih dipakai (preview di Windows); dibersihkan auto-cleanup
         return {"status": "ok", "outputs": outputs}
 
     except Exception as e:

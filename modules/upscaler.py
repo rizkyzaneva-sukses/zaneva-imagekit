@@ -125,7 +125,10 @@ def process_image(in_path: Path, out_dir: Path,
         final_path = out_dir / final_name
 
         output_pil.save(final_path, format="PNG")
-        in_path.unlink(missing_ok=True)
+        try:
+            in_path.unlink(missing_ok=True)
+        except OSError:
+            pass  # input masih dipakai (preview di Windows); dibersihkan auto-cleanup
 
         return {
             "status": "ok",
