@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zaneva ImageKit</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0F172A; --surface: #1E293B; --border: #334155;
+            --text: #E2E8F0; --muted: #94A3B8; --accent-purple: #8B5CF6;
+            --accent-blue: #3B82F6; --accent-green: #10B981;
+            --error: #EF4444; --radius: 12px;
+        }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        a { color: inherit; text-decoration: none; }
+
+        /* Navbar */
+        .navbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .navbar .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+        .navbar .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue), var(--accent-green)); }
+        .navbar .meta { display: flex; align-items: center; gap: 16px; }
+        .navbar .meta .badge { font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; color: var(--muted); }
+        .btn-logout { background: none; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+        .btn-logout:hover { border-color: var(--error); color: var(--error); }
+
+        /* Tabs */
+        .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; }
+        .tab { padding: 14px 24px; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; }
+        .tab:hover { color: var(--text); }
+        .tab.active[data-tab="bg"] { color: var(--accent-purple); border-color: var(--accent-purple); }
+        .tab.active[data-tab="upscale"] { color: var(--accent-blue); border-color: var(--accent-blue); }
+        .tab.active[data-tab="resize"] { color: var(--accent-green); border-color: var(--accent-green); }
+
+        /* Layout */
+        .main { display: flex; height: calc(100vh - 110px); }
+        .sidebar { width: 280px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; }
+        .content { flex: 1; padding: 24px; overflow-y: auto; }
+
+        /* Sidebar sections */
+        .sidebar h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
+        .sidebar label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; margin-top: 12px; }
+        .sidebar select, .sidebar input[type="number"], .sidebar input[type="text"] {
+            width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: 8px 12px; color: var(--text); font-size: 13px; outline: none;
+        }
+        .sidebar select:focus, .sidebar input:focus { border-color: var(--accent-purple); }
+        .sidebar .range-wrap { display: flex; align-items: center; gap: 8px; }
+        .sidebar input[type="range"] { flex: 1; accent-color: var(--accent-green); }
+        .sidebar .range-val { font-size: 13px; color: var(--text); min-width: 32px; text-align: right; }
+
+        /* Preset checkboxes */
+        .preset-grid { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        .preset-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+        .preset-item input { accent-color: var(--accent-green); }
+
+        /* Radio buttons */
+        .radio-group { display: flex; gap: 12px; margin-top: 8px; }
+        .radio-group label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; margin: 0; }
+        .radio-group input { accent-color: var(--accent-green); }
+
+        /* Tab panels */
+        .panel { display: none; }
+        .panel.active { display: flex; flex-direction: column; height: 100%; }
+
+        /* Dropzone */
+        .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 48px 24px; text-align: center; cursor: pointer; transition: all .2s; background: var(--surface); }
+        .dropzone:hover, .dropzone.dragover { border-color: var(--accent-blue); background: #1a2744; }
+        .dropzone .icon { font-size: 48px; margin-bottom: 12px; }
+        .dropzone p { color: var(--muted); font-size: 14px; }
+        .dropzone p span { color: var(--accent-blue); text-decoration: underline; }
+        .dropzone .hint { font-size: 12px; color: #475569; margin-top: 8px; }
+        #fileInput { display: none; }
+
+        /* Stats */
+        .stats { display: flex; gap: 12px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+        .stats .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+
+        /* File grid */
+        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
+        .file-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; position: relative; transition: all .2s; }
+        .file-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+        .file-card .thumb { width: 100%; height: 180px; object-fit: cover; background: var(--bg); display: block; }
+        .file-card .info { padding: 12px; }
+        .file-card .info .name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-card .info .status { font-size: 12px; margin-top: 4px; }
+        .file-card .info .status.pending { color: var(--muted); }
+        .file-card .info .status.done { color: var(--accent-green); }
+        .file-card .info .status.error { color: var(--error); }
+        .file-card .actions { padding: 0 12px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .file-card .btn-del { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.7); border: none; color: var(--error); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; }
+        .file-card:hover .btn-del { opacity: 1; }
+
+        /* Buttons */
+        .btn { padding: 7px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; }
+        .btn-primary { background: var(--accent-blue); color: white; }
+        .btn-primary:hover { background: #2563EB; }
+        .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-success { background: var(--accent-green); color: white; }
+        .btn-success:hover { opacity: .9; }
+        .btn-danger { background: var(--error); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+        .btn-outline:hover { border-color: var(--text); color: var(--text); }
+
+        /* Batch actions */
+        .batch-actions { margin-top: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .batch-actions .count { font-size: 13px; color: var(--muted); }
+
+        /* Loading overlay */
+        .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100; align-items: center; justify-content: center; }
+        .loading-overlay.active { display: flex; }
+        .loading-box { background: var(--surface); border-radius: var(--radius); padding: 32px; text-align: center; }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+        .progress-bar .fill { height: 100%; background: var(--accent-blue); border-radius: 2px; transition: width .3s; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; font-size: 13px; z-index: 200; transform: translateY(100px); opacity: 0; transition: all .3s; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { border-color: var(--error); color: var(--error); }
+        .toast.success { border-color: var(--accent-green); color: var(--accent-green); }
+
+        /* Empty state */
+        .empty { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
+
+        /* Warning banner */
+        .warning-banner { background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.3); border-radius: 8px; padding: 10px 16px; font-size: 12px; color: #FDE68A; margin-bottom: 16px; display: none; }
+
+        /* Sidebar collapse for mobile */
+        @media (max-width: 768px) {
+            .main { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 12px; }
+            .tabs { overflow-x: auto; }
+            .tab { padding: 12px 16px; white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="brand"><span class="dot"></span> Zaneva ImageKit</div>
+        <div class="meta">
+            <span class="badge">v{{ version }}</span>
+            <button class="btn-logout" onclick="location.href='/logout'">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab active" data-tab="bg">🎨 Remove BG</div>
+        <div class="tab" data-tab="upscale">🔍 Upscale</div>
+        <div class="tab" data-tab="resize">📐 Resize & Compress</div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="main">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <!-- BG settings -->
+            <div class="sidebar-section" id="settings-bg">
+                <h3>Remove BG Settings</h3>
+                <label>Model</label>
+                <select id="bgModel">
+                    <option value="birefnet-general" selected>birefnet-general (Best)</option>
+                    <option value="birefnet-portrait">birefnet-portrait</option>
+                    <option value="isnet-general-use">isnet-general-use</option>
+                </select>
+            </div>
+            <!-- Upscale settings -->
+            <div class="sidebar-section" id="settings-upscale" style="display:none">
+                <h3>Upscale Settings</h3>
+                <label>Model</label>
+                <select id="upscaleModel">
+                    <option value="RealESRGAN_x4plus">RealESRGAN x4plus</option>
+                    <option value="RealESRGAN_x2plus">RealESRGAN x2plus</option>
+                </select>
+                <label>Scale Factor</label>
+                <select id="upscaleScale">
+                    <option value="4">4x</option>
+                    <option value="2">2x</option>
+                </select>
+            </div>
+            <!-- Resize settings -->
+            <div class="sidebar-section" id="settings-resize" style="display:none">
+                <h3>Resize Settings</h3>
+                <label>Platform (bisa multi)</label>
+                <div class="preset-grid" id="presetGrid"></div>
+                <label>Metode</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="resizeMethod" value="crop" checked> Crop Center</label>
+                    <label><input type="radio" name="resizeMethod" value="fit"> Fit + Padding</label>
+                </div>
+                <label>Warna Padding</label>
+                <input type="text" id="padColor" value="#FFFFFF" placeholder="#FFFFFF">
+                <label>Kualitas Kompresi</label>
+                <div class="range-wrap">
+                    <input type="range" id="quality" min="60" max="100" value="85">
+                    <span class="range-val" id="qualityVal">85%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content panels -->
+        <div class="content">
+            <!-- BG Panel -->
+            <div class="panel active" id="panel-bg">
+                <div class="dropzone" id="dropzone-bg">
+                    <div class="icon">🎨</div>
+                    <p>Drag & drop foto, atau <span>pilih file</span></p>
+                    <p class="hint">JPG, PNG, WEBP — Max {{ max_files }} file, {{ max_mb }}MB per file</p>
+                </div>
+                <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.webp">
+                <div class="stats" id="stats" style="display:none">
+                    <div class="stat">📁 Total: <strong id="totalCount">0</strong></div>
+                    <div class="stat">✅ Selesai: <strong id="doneCount">0</strong></div>
+                    <div class="stat">⏳ Pending: <strong id="pendingCount">0</strong></div>
+                </div>
+                <div class="file-grid" id="fileGrid"></div>
+                <div class="batch-actions" id="batchActions" style="display:none">
+                    <span class="count" id="batchCount">0 file siap didownload</span>
+                    <button class="btn btn-success" onclick="downloadAll()">⬇ Download Semua (ZIP)</button>
+                    <button class="btn btn-danger" onclick="clearAll()">🗑 Hapus Semua</button>
+                    <button class="btn btn-outline" onclick="resetAll()">🔄 Upload Lagi</button>
+                </div>
+                <div class="empty" id="emptyState">Belum ada file yang diproses.</div>
+            </div>
+
+            <!-- Upscale Panel -->
+            <div class="panel" id="panel-upscale">
+                <div class="warning-banner" id="upscaleWarning">⚠️ Proses CPU, jangan tutup browser. Model sedang dimuat...</div>
+                <div class="dropzone" id="dropzone-upscale" style="display:none">
+                    <div class="icon">🔍</div>
+                    <p>Drag & drop foto, atau <span>pilih file</span></p>
+                    <p class="hint">JPG, PNG, WEBP — Max {{ max_files }} file</p>
+                </div>
+                <div id="upscaleLoading" style="text-align:center;padding:48px;color:var(--muted)">
+                    <div class="spinner" style="margin:0 auto 16px"></div>
+                    <p>Memuat model Upscaler... (butuh 5-10 detik)</p>
+                </div>
+                <input type="file" id="fileInputUpscale" multiple accept=".jpg,.jpeg,.png,.webp">
+                <div class="file-grid" id="fileGridUpscale"></div>
+                <div class="batch-actions" id="batchActionsUpscale" style="display:none">
+                    <span class="count" id="batchCountUpscale">0 file</span>
+                    <button class="btn btn-success" onclick="downloadAllUpscale()">⬇ Download Semua</button>
+                    <button class="btn btn-danger" onclick="clearAllUpscale()">🗑 Hapus Semua</button>
+                    <button class="btn btn-outline" onclick="resetAllUpscale()">🔄 Upload Lagi</button>
+                </div>
+                <div class="empty" id="emptyStateUpscale">Klik tab ini untuk memuat model...</div>
+            </div>
+
+            <!-- Resize Panel -->
+            <div class="panel" id="panel-resize">
+                <div class="dropzone" id="dropzone-resize">
+                    <div class="icon">📐</div>
+                    <p>Drag & drop foto, atau <span>pilih file</span></p>
+                    <p class="hint">JPG, PNG, WEBP — Max {{ max_files }} file</p>
+                </div>
+                <input type="file" id="fileInputResize" multiple accept=".jpg,.jpeg,.png,.webp">
+                <div class="file-grid" id="fileGridResize"></div>
+                <div class="batch-actions" id="batchActionsResize" style="display:none">
+                    <span class="count" id="batchCountResize">0 file</span>
+                    <button class="btn btn-success" onclick="downloadAllResize()">⬇ Download Semua (ZIP)</button>
+                    <button class="btn btn-danger" onclick="clearAllResize()">🗑 Hapus Semua</button>
+                    <button class="btn btn-outline" onclick="resetAllResize()">🔄 Upload Lagi</button>
+                </div>
+                <div class="empty" id="emptyStateResize">Belum ada file yang diproses.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p id="loadingText">Mengupload file...</p>
+            <div class="progress-bar" id="progressBar" style="display:none"><div class="fill" id="progressFill" style="width:0%"></div></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // ═══════════════════════════════════════
+    // TAB SYSTEM
+    // ═══════════════════════════════════════
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.panel');
+    let currentTab = 'bg';
+    let upscaleInitialized = false;
+
+    tabs.forEach(t => t.addEventListener('click', () => {
+        const tab = t.dataset.tab;
+        if (tab === currentTab) return;
+        tabs.forEach(x => x.classList.remove('active'));
+        panels.forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('panel-' + tab).classList.add('active');
+        document.getElementById('settings-' + tab).style.display = 'block';
+        if (currentTab !== tab) document.getElementById('settings-' + currentTab).style.display = 'none';
+        currentTab = tab;
+        if (tab === 'upscale' && !upscaleInitialized) initUpscale();
+    }));
+
+    // ═══════════════════════════════════════
+    // RESIZE PRESETS
+    // ═══════════════════════════════════════
+    const PRESETS = {
+        shopee: 'Shopee Produk (1500×1500)', tiktok_feed: 'TikTok Feed (1080×1920)',
+        tiktok_thumb: 'TikTok Thumb (1080×1080)', ig_feed: 'Instagram Feed (1080×1350)',
+        ig_square: 'Instagram Square (1080×1080)', marketplace: 'Marketplace Banner (1200×675)',
+        original: 'Original + Compress'
+    };
+    const pg = document.getElementById('presetGrid');
+    Object.entries(PRESETS).forEach(([k, v]) => {
+        const lbl = document.createElement('label');
+        lbl.className = 'preset-item';
+        lbl.innerHTML = `<input type="checkbox" value="${k}" ${k === 'shopee' ? 'checked' : ''}> ${v}`;
+        pg.appendChild(lbl);
+    });
+    document.getElementById('quality').addEventListener('input', e => {
+        document.getElementById('qualityVal').textContent = e.target.value + '%';
+    });
+
+    // ═══════════════════════════════════════
+    // TOAST / LOADING
+    // ═══════════════════════════════════════
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast show ' + type;
+        setTimeout(() => t.className = 'toast', 3000);
+    }
+    function showLoading(text) {
+        document.getElementById('loadingText').textContent = text;
+        document.getElementById('loadingOverlay').classList.add('active');
+    }
+    function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
+    function showProgress(pct) {
+        document.getElementById('progressBar').style.display = 'block';
+        document.getElementById('progressFill').style.width = pct + '%';
+    }
+    function hideProgress() { document.getElementById('progressBar').style.display = 'none'; }
+
+    // ═══════════════════════════════════════
+    // TAB 1: REMOVE BG
+    // ═══════════════════════════════════════
+    const dz = document.getElementById('dropzone-bg');
+    const fi = document.getElementById('fileInput');
+    let bgFiles = [], bgOutputs = [];
+
+    dz.addEventListener('click', () => fi.click());
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadBg(e.dataTransfer.files); });
+    fi.addEventListener('change', e => { if (e.target.files.length) uploadBg(e.target.files); });
+
+    async function uploadBg(fileList) {
+        showLoading('Mengupload file...');
+        const fd = new FormData();
+        for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
+        try {
+            const res = await fetch('/bg/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            for (const f of data.accepted) bgFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null });
+            if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
+            renderBg(); processAllBg();
+        } catch (err) { showToast(err.message, 'error'); }
+        hideLoading();
+    }
+
+    async function processAllBg() {
+        showLoading('Menghapus background...');
+        const pending = bgFiles.filter(f => f.status === 'pending');
+        let done = 0;
+        for (const f of pending) {
+            try {
+                const model = document.getElementById('bgModel').value;
+                const res = await fetch('/bg/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model}) });
+                const data = await res.json();
+                if (data.status === 'ok') { f.status = 'done'; f.outputId = data.output_id; bgOutputs.push(data.output_id); }
+                else { f.status = 'error'; f.error = data.error; }
+            } catch (err) { f.status = 'error'; f.error = err.message; }
+            done++; showProgress(done / pending.length * 100); renderBgStats(); renderBg();
+        }
+        hideLoading(); hideProgress();
+        if (bgOutputs.length) document.getElementById('batchActions').style.display = 'flex';
+        document.getElementById('batchCount').textContent = bgOutputs.length + ' file siap didownload';
+    }
+
+    function renderBg() {
+        const grid = document.getElementById('fileGrid');
+        const empty = document.getElementById('emptyState');
+        if (!bgFiles.length) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none'; grid.innerHTML = '';
+        bgFiles.forEach((f, i) => {
+            const card = document.createElement('div'); card.className = 'file-card';
+            const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
+            const st = f.status === 'done' ? '✅ Selesai' : f.status === 'error' ? '❌ ' + (f.error||'Error') : '⏳ Menunggu...';
+            const src = f.status === 'done' && f.outputId ? '/bg/preview/' + f.outputId : '/bg/preview-input/' + f.id;
+            card.innerHTML = `<button class="btn-del" onclick="deleteBg(${i})">×</button>
+                <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
+                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
+                ${f.status === 'done' && f.outputId ? `<div class="actions">
+                    <button class="btn btn-primary" onclick="window.open('/bg/preview/${f.outputId}','_blank')">👁</button>
+                    <button class="btn btn-success" onclick="location.href='/bg/download/${f.outputId}'">⬇</button>
+                </div>` : ''}`;
+            grid.appendChild(card);
+        });
+    }
+
+    function renderBgStats() {
+        document.getElementById('stats').style.display = 'flex';
+        document.getElementById('totalCount').textContent = bgFiles.length;
+        document.getElementById('doneCount').textContent = bgFiles.filter(f => f.status === 'done').length;
+        document.getElementById('pendingCount').textContent = bgFiles.filter(f => f.status === 'pending').length;
+    }
+
+    async function deleteBg(i) {
+        const f = bgFiles[i];
+        if (f.outputId) bgOutputs = bgOutputs.filter(o => o !== f.outputId);
+        bgFiles.splice(i, 1); renderBg(); renderBgStats();
+    }
+    async function downloadAll() { await fetchZip('/bg/download-all', bgOutputs, 'zaneva_nobg.zip'); }
+    async function clearAll() {
+        if (!confirm('Hapus semua file?')) return;
+        await fetch('/bg/clear', { method: 'POST' });
+        bgFiles = []; bgOutputs = []; renderBg(); renderBgStats();
+        document.getElementById('batchActions').style.display = 'none';
+        showToast('Semua file dihapus', 'success');
+    }
+    function resetAll() {
+        fetch('/bg/clear', { method: 'POST' });
+        bgFiles = []; bgOutputs = []; renderBg(); renderBgStats();
+        document.getElementById('batchActions').style.display = 'none';
+        document.getElementById('stats').style.display = 'none'; fi.value = '';
+    }
+
+    // ═══════════════════════════════════════
+    // TAB 2: UPSCALE
+    // ═══════════════════════════════════════
+    let upscaleFiles = [], upscaleOutputs = [];
+
+    async function initUpscale() {
+        upscaleInitialized = true;
+        document.getElementById('upscaleWarning').style.display = 'block';
+        document.getElementById('emptyStateUpscale').style.display = 'none';
+        try {
+            await fetch('/upscale/init', { method: 'GET' });
+            pollUpscaleStatus();
+        } catch (err) { showToast('Gagal init upscaler', 'error'); }
+    }
+
+    async function pollUpscaleStatus() {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch('/upscale/status');
+                const data = await res.json();
+                if (data.status === 'ready') {
+                    clearInterval(interval);
+                    document.getElementById('upscaleLoading').style.display = 'none';
+                    document.getElementById('upscaleWarning').style.display = 'none';
+                    document.getElementById('dropzone-upscale').style.display = 'block';
+                    showToast('Model Upscaler siap!', 'success');
+                }
+            } catch (e) {}
+        }, 2000);
+    }
+
+    const dzU = document.getElementById('dropzone-upscale');
+    const fiU = document.getElementById('fileInputUpscale');
+    dzU.addEventListener('click', () => fiU.click());
+    dzU.addEventListener('dragover', e => { e.preventDefault(); dzU.classList.add('dragover'); });
+    dzU.addEventListener('dragleave', () => dzU.classList.remove('dragover'));
+    dzU.addEventListener('drop', e => { e.preventDefault(); dzU.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadUpscale(e.dataTransfer.files); });
+    fiU.addEventListener('change', e => { if (e.target.files.length) uploadUpscale(e.target.files); });
+
+    async function uploadUpscale(fileList) {
+        showLoading('Mengupload file...');
+        const fd = new FormData();
+        for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
+        try {
+            const res = await fetch('/upscale/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            for (const f of data.accepted) upscaleFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null, origRes: '', newRes: '' });
+            if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
+            renderUpscale(); processAllUpscale();
+        } catch (err) { showToast(err.message, 'error'); }
+        hideLoading();
+    }
+
+    async function processAllUpscale() {
+        showLoading('Meng-upscale foto...');
+        const pending = upscaleFiles.filter(f => f.status === 'pending');
+        let done = 0;
+        for (const f of pending) {
+            try {
+                const model = document.getElementById('upscaleModel').value;
+                const scale = parseInt(document.getElementById('upscaleScale').value);
+                const res = await fetch('/upscale/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model, scale}) });
+                const data = await res.json();
+                if (data.status === 'ok') { f.status = 'done'; f.outputId = data.output_id; f.origRes = data.orig_res; f.newRes = data.new_res; upscaleOutputs.push(data.output_id); }
+                else { f.status = 'error'; f.error = data.error; }
+            } catch (err) { f.status = 'error'; f.error = err.message; }
+            done++; showProgress(done / pending.length * 100); renderUpscale();
+        }
+        hideLoading(); hideProgress();
+        if (upscaleOutputs.length) document.getElementById('batchActionsUpscale').style.display = 'flex';
+        document.getElementById('batchCountUpscale').textContent = upscaleOutputs.length + ' file siap didownload';
+    }
+
+    function renderUpscale() {
+        const grid = document.getElementById('fileGridUpscale');
+        if (!upscaleFiles.length) { grid.innerHTML = ''; return; }
+        grid.innerHTML = '';
+        upscaleFiles.forEach((f, i) => {
+            const card = document.createElement('div'); card.className = 'file-card';
+            const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
+            const st = f.status === 'done' ? `✅ ${f.origRes} → ${f.newRes}` : f.status === 'error' ? '❌ ' + (f.error||'Error') : '⏳ Menunggu...';
+            const src = f.status === 'done' && f.outputId ? '/upscale/preview/' + f.outputId : '/upscale/preview-input/' + f.id;
+            card.innerHTML = `<button class="btn-del" onclick="deleteUpscale(${i})">×</button>
+                <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
+                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
+                ${f.status === 'done' && f.outputId ? `<div class="actions">
+                    <button class="btn btn-primary" onclick="window.open('/upscale/preview/${f.outputId}','_blank')">👁</button>
+                    <button class="btn btn-success" onclick="location.href='/upscale/download/${f.outputId}'">⬇</button>
+                </div>` : ''}`;
+            grid.appendChild(card);
+        });
+    }
+
+    async function deleteUpscale(i) {
+        const f = upscaleFiles[i];
+        if (f.outputId) upscaleOutputs = upscaleOutputs.filter(o => o !== f.outputId);
+        upscaleFiles.splice(i, 1); renderUpscale();
+    }
+    async function downloadAllUpscale() { await fetchZip('/upscale/download-all', upscaleOutputs, 'zaneva_upscaled.zip'); }
+    async function clearAllUpscale() {
+        if (!confirm('Hapus semua?')) return;
+        await fetch('/upscale/clear', { method: 'POST' });
+        upscaleFiles = []; upscaleOutputs = []; renderUpscale();
+        document.getElementById('batchActionsUpscale').style.display = 'none';
+    }
+    function resetAllUpscale() {
+        fetch('/upscale/clear', { method: 'POST' });
+        upscaleFiles = []; upscaleOutputs = []; renderUpscale();
+        document.getElementById('batchActionsUpscale').style.display = 'none'; fiU.value = '';
+    }
+
+    // ═══════════════════════════════════════
+    // TAB 3: RESIZE & COMPRESS
+    // ═══════════════════════════════════════
+    const dzR = document.getElementById('dropzone-resize');
+    const fiR = document.getElementById('fileInputResize');
+    let resizeFiles = [], resizeOutputs = [];
+
+    dzR.addEventListener('click', () => fiR.click());
+    dzR.addEventListener('dragover', e => { e.preventDefault(); dzR.classList.add('dragover'); });
+    dzR.addEventListener('dragleave', () => dzR.classList.remove('dragover'));
+    dzR.addEventListener('drop', e => { e.preventDefault(); dzR.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadResize(e.dataTransfer.files); });
+    fiR.addEventListener('change', e => { if (e.target.files.length) uploadResize(e.target.files); });
+
+    async function uploadResize(fileList) {
+        showLoading('Mengupload file...');
+        const fd = new FormData();
+        for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
+        try {
+            const res = await fetch('/resize/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            for (const f of data.accepted) resizeFiles.push({ id: f.id, original: f.original, status: 'pending', outputs: [] });
+            if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
+            renderResize(); processAllResize();
+        } catch (err) { showToast(err.message, 'error'); }
+        hideLoading();
+    }
+
+    async function processAllResize() {
+        showLoading('Resize & compress...');
+        const pending = resizeFiles.filter(f => f.status === 'pending');
+        const presets = [...document.querySelectorAll('#presetGrid input:checked')].map(c => c.value);
+        const method = document.querySelector('input[name="resizeMethod"]:checked').value;
+        const padColor = document.getElementById('padColor').value;
+        const quality = parseInt(document.getElementById('quality').value);
+        if (!presets.length) { showToast('Pilih minimal 1 platform!', 'error'); hideLoading(); return; }
+        let done = 0;
+        for (const f of pending) {
+            try {
+                const res = await fetch('/resize/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ presets, method, pad_color: padColor, quality, original_name: f.original.replace(/\.[^.]+$/, '') }) });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    f.status = 'done'; f.outputs = data.outputs;
+                    for (const o of data.outputs) resizeOutputs.push(o.output_id);
+                } else { f.status = 'error'; f.error = data.error; }
+            } catch (err) { f.status = 'error'; f.error = err.message; }
+            done++; showProgress(done / pending.length * 100); renderResize();
+        }
+        hideLoading(); hideProgress();
+        if (resizeOutputs.length) document.getElementById('batchActionsResize').style.display = 'flex';
+        document.getElementById('batchCountResize').textContent = resizeOutputs.length + ' file siap didownload';
+    }
+
+    function renderResize() {
+        const grid = document.getElementById('fileGridResize');
+        const empty = document.getElementById('emptyStateResize');
+        if (!resizeFiles.length) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none'; grid.innerHTML = '';
+        resizeFiles.forEach((f, i) => {
+            const card = document.createElement('div'); card.className = 'file-card';
+            const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
+            const st = f.status === 'done' ? '✅ ' + f.outputs.length + ' versi' : f.status === 'error' ? '❌ ' + (f.error||'') : '⏳';
+            const src = f.status === 'done' && f.outputs.length ? '/resize/preview/' + f.outputs[0].output_id : '/resize/preview-input/' + f.id;
+            let actionsHtml = '';
+            if (f.status === 'done') {
+                actionsHtml = '<div class="actions">';
+                for (const o of f.outputs) {
+                    actionsHtml += `<button class="btn btn-primary" onclick="window.open('/resize/preview/${o.output_id}','_blank')">${o.label}</button>`;
+                }
+                actionsHtml += '</div>';
+            }
+            card.innerHTML = `<button class="btn-del" onclick="deleteResize(${i})">×</button>
+                <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
+                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
+                ${actionsHtml}`;
+            grid.appendChild(card);
+        });
+    }
+
+    async function deleteResize(i) {
+        const f = resizeFiles[i];
+        for (const o of f.outputs) resizeOutputs = resizeOutputs.filter(x => x !== o.output_id);
+        resizeFiles.splice(i, 1); renderResize();
+    }
+    async function downloadAllResize() { await fetchZip('/resize/download-all', resizeOutputs, 'zaneva_resized.zip'); }
+    async function clearAllResize() {
+        if (!confirm('Hapus semua?')) return;
+        await fetch('/resize/clear', { method: 'POST' });
+        resizeFiles = []; resizeOutputs = []; renderResize();
+        document.getElementById('batchActionsResize').style.display = 'none';
+    }
+    function resetAllResize() {
+        fetch('/resize/clear', { method: 'POST' });
+        resizeFiles = []; resizeOutputs = []; renderResize();
+        document.getElementById('batchActionsResize').style.display = 'none'; fiR.value = '';
+    }
+
+    // ═══════════════════════════════════════
+    // SHARED: DOWNLOAD ZIP
+    // ═══════════════════════════════════════
+    async function fetchZip(url, ids, filename) {
+        if (!ids.length) return;
+        try {
+            const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ output_ids: ids }) });
+            if (!res.ok) throw new Error('Download gagal');
+            const blob = await res.blob();
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+        } catch (err) { showToast(err.message, 'error'); }
+    }
+    </script>
+</body>
+</html>

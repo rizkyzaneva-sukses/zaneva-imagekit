@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Zaneva ImageKit</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0F172A;
+      color: #E2E8F0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1E293B;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .logo .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #0F172A;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .logo .badge .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8B5CF6, #3B82F6, #10B981);
+    }
+    .logo p {
+      color: #64748B;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: #94A3B8;
+      margin-bottom: 6px;
+    }
+    input[type="password"] {
+      width: 100%;
+      background: #0F172A;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #E2E8F0;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input[type="password"]:focus {
+      border-color: #8B5CF6;
+    }
+    .error {
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.4);
+      color: #FCA5A5;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .btn-login {
+      width: 100%;
+      margin-top: 16px;
+      background: #8B5CF6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-login:hover { background: #7C3AED; }
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="badge">
+        <span class="dot"></span>
+        Zaneva ImageKit
+      </div>
+      <p>Tools editing foto internal ZANEVA</p>
+    </div>
+
+    <h2>Masuk</h2>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password"
+             placeholder="Masukkan password..." autofocus autocomplete="current-password" />
+      <button type="submit" class="btn-login">Masuk →</button>
+    </form>
+
+    <div class="footer">ZANEVA Internal &bull; Tim Creative &amp; Content</div>
+  </div>
+</body>
+</html>
