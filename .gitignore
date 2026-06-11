@@ -1,7 +1,10 @@
 __pycache__/
 *.pyc
 venv/
+.venv/
 .env
+build/
+dist/
 tmp_*/
 *.pth
 .DS_Store
