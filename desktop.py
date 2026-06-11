@@ -40,8 +40,8 @@ def main():
     print("=" * 50)
     print("  Zaneva ImageKit — Desktop")
     print(f"  Browser akan terbuka di http://127.0.0.1:{port}")
-    print("  Saat pertama kali dijalankan, model AI (~900MB)")
-    print("  akan diunduh dulu — mohon tunggu.")
+    print("  Model BG di-download saat pertama kali dipakai")
+    print("  (isnet ~170MB; birefnet ~900MB bila dipilih).")
     print("  JANGAN tutup jendela ini selama app dipakai.")
     print("=" * 50)
 

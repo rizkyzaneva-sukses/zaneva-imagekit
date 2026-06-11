@@ -2,24 +2,14 @@
 set -e
 echo "=== Zaneva ImageKit Setup ==="
 
-# Install PyTorch CPU
-echo "[1/4] Installing PyTorch (CPU)..."
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# Torch TIDAK lagi dibutuhkan — upscaler sekarang jalan via onnxruntime
+# (sudah terbawa rembg[cpu]) dengan model models/*.onnx yang ikut repo.
 
-# Install requirements + Upscale deps (Real-ESRGAN).
-# Catatan: basicsr vs torchvision>=0.17 sudah ditangani oleh shim di
-# modules/upscaler.py (_patch_torchvision_compat), jadi tidak perlu pin versi.
-echo "[2/4] Installing requirements + Real-ESRGAN..."
+echo "[1/2] Installing requirements..."
 pip install -r requirements.txt
-pip install realesrgan basicsr
 
-# Download models
-echo "[3/4] Downloading RealESRGAN models..."
-python download_models.py
-
-# Verify rembg
-echo "[4/4] Pre-loading rembg model..."
-python -c "from rembg import new_session; new_session('birefnet-general'); print('rembg OK')"
+echo "[2/2] Pre-loading rembg default model (isnet, ~170MB)..."
+python -c "from rembg import new_session; new_session('isnet-general-use'); print('rembg OK')"
 
 echo ""
 echo "=== Setup selesai ==="

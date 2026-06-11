@@ -8,12 +8,8 @@ opencv-python-headless>=4.8.0
 python-dotenv>=1.0.0
 gunicorn>=21.0.0
 
-# ─── Optional: Upscale tab (Real-ESRGAN) ───
-# Tidak dimasukkan ke core agar image Docker tetap ramping (torch berukuran besar).
-# Install via setup.sh, atau manual:
-#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-#   pip install realesrgan basicsr
-#   python download_models.py   # unduh bobot model ke folder models/
-# Inkompatibilitas basicsr vs torchvision>=0.17 sudah ditangani otomatis oleh
-# shim di modules/upscaler.py (_patch_torchvision_compat) — tidak perlu pin versi.
-# Tanpa langkah ini, tab Upscale error saat dipakai; Remove BG & Resize tetap jalan.
+# ─── Upscale tab (Real-ESRGAN via ONNX) ───
+# Tidak butuh dependensi tambahan: jalan di onnxruntime (sudah terbawa
+# rembg[cpu]) dengan bobot models/*.onnx yang ikut repo.
+# Torch/basicsr/realesrgan TIDAK dibutuhkan lagi (hanya untuk konversi
+# one-off — lihat convert_to_onnx.py).
