@@ -38,13 +38,9 @@ def _crop_center(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
         top = (src_h - new_h) // 2
         img = img.crop((0, top, src_w, top + new_h))
 
-    # Never upscale
-    if img.size[0] > target_w or img.size[1] > target_h:
-        img = img.resize((target_w, target_h), Image.LANCZOS)
-    else:
-        # Only downscale
-        if img.size[0] >= target_w:
-            img = img.resize((target_w, target_h), Image.LANCZOS)
+    # Always output the exact preset size (upscale kecil bila perlu) agar
+    # dimensi hasil sesuai label platform (mis. Shopee 1500×1500).
+    img = img.resize((target_w, target_h), Image.LANCZOS)
 
     return img
 
@@ -54,8 +50,8 @@ def _fit_padding(img: Image.Image, target_w: int, target_h: int,
     """Fit image within target size, pad remainder with pad_color."""
     src_w, src_h = img.size
 
-    # Only downscale
-    scale = min(target_w / src_w, target_h / src_h, 1.0)
+    # Skala agar muat di dalam target (boleh memperbesar foto kecil).
+    scale = min(target_w / src_w, target_h / src_h)
     new_w = int(src_w * scale)
     new_h = int(src_h * scale)
     img = img.resize((new_w, new_h), Image.LANCZOS)
