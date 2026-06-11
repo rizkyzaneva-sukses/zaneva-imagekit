@@ -6,9 +6,12 @@ echo "=== Zaneva ImageKit Setup ==="
 echo "[1/4] Installing PyTorch (CPU)..."
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-# Install requirements
-echo "[2/4] Installing requirements..."
+# Install requirements + Upscale deps (Real-ESRGAN).
+# Catatan: basicsr vs torchvision>=0.17 sudah ditangani oleh shim di
+# modules/upscaler.py (_patch_torchvision_compat), jadi tidak perlu pin versi.
+echo "[2/4] Installing requirements + Real-ESRGAN..."
 pip install -r requirements.txt
+pip install realesrgan basicsr
 
 # Download models
 echo "[3/4] Downloading RealESRGAN models..."

@@ -8,12 +8,11 @@ python-dotenv>=1.0.0
 gunicorn>=21.0.0
 
 # ─── Optional: Upscale tab (Real-ESRGAN) ───
-# Install separately via setup.sh (torch CPU wheel), atau uncomment baris di bawah.
-# CATATAN: basicsr tidak kompatibel dengan torchvision>=0.17
-# (import torchvision.transforms.functional_tensor sudah dihapus).
-# Lihat README untuk patch. Tanpa ini, tab Upscale akan error saat dipakai
-# tetapi Remove BG & Resize tetap berjalan normal.
-# torch
-# torchvision
-# realesrgan
-# basicsr
+# Tidak dimasukkan ke core agar image Docker tetap ramping (torch berukuran besar).
+# Install via setup.sh, atau manual:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install realesrgan basicsr
+#   python download_models.py   # unduh bobot model ke folder models/
+# Inkompatibilitas basicsr vs torchvision>=0.17 sudah ditangani otomatis oleh
+# shim di modules/upscaler.py (_patch_torchvision_compat) — tidak perlu pin versi.
+# Tanpa langkah ini, tab Upscale error saat dipakai; Remove BG & Resize tetap jalan.

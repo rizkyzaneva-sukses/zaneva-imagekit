@@ -1,3 +1,5 @@
+import sys
+import types
 import threading
 from pathlib import Path
 from PIL import Image
@@ -12,8 +14,22 @@ ALLOWED_MODELS = ["RealESRGAN_x4plus", "RealESRGAN_x2plus"]
 DEFAULT_MODEL = "RealESRGAN_x4plus"
 
 
+def _patch_torchvision_compat():
+    """basicsr meng-import torchvision.transforms.functional_tensor yang sudah
+    dihapus di torchvision>=0.17. Daftarkan modul shim ke sys.modules agar
+    import basicsr tetap berhasil tanpa mengubah file site-packages."""
+    mod = "torchvision.transforms.functional_tensor"
+    if mod in sys.modules:
+        return
+    import torchvision.transforms.functional as F
+    shim = types.ModuleType(mod)
+    shim.rgb_to_grayscale = F.rgb_to_grayscale
+    sys.modules[mod] = shim
+
+
 def _load_model(model_name: str):
     """Internal: load a single RealESRGAN model. Must be called under lock."""
+    _patch_torchvision_compat()
     from basicsr.archs.rrdbnet_arch import RRDBNet
     from realesrgan import RealESRGANer
 
@@ -78,7 +94,7 @@ def is_loading() -> bool:
     return _loading
 
 
-def process_image(in_path: Path, out_path: Path,
+def process_image(in_path: Path, out_dir: Path,
                   model_name: str = DEFAULT_MODEL, scale: int = 4) -> dict:
     """Upscale a single image. Returns dict with status and resolution info."""
     if not _loaded:
@@ -106,7 +122,7 @@ def process_image(in_path: Path, out_path: Path,
 
         suffix = f"_{scale}x"
         final_name = in_path.stem + suffix + ".png"
-        final_path = out_path.parent / final_name
+        final_path = out_dir / final_name
 
         output_pil.save(final_path, format="PNG")
         in_path.unlink(missing_ok=True)
