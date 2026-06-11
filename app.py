@@ -19,7 +19,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "changeme-imagekit")
 
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "zaneva2025")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "zaneva2024")
 MAX_FILES = int(os.environ.get("MAX_FILES", 30))
 MAX_FILE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", 20))
 TMP_BASE = Path("/tmp/imagekit")
