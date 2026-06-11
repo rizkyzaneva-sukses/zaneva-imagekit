@@ -15,6 +15,15 @@ from flask import (
 )
 from dotenv import load_dotenv
 
+# Enable HEIC/HEIF support (foto iPhone) untuk Pillow.
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    _HEIC_OK = True
+except Exception as e:  # pragma: no cover
+    print(f"[ImageKit] HEIC support tidak aktif: {e}")
+    _HEIC_OK = False
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -27,6 +36,8 @@ MAX_FILE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", 20))
 # Override with TMP_DIR env var if needed.
 TMP_BASE = Path(os.environ.get("TMP_DIR") or (Path(tempfile.gettempdir()) / "imagekit"))
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+if _HEIC_OK:
+    ALLOWED_EXT |= {".heic", ".heif"}
 APP_VERSION = "1.0.0"
 
 TMP_BASE.mkdir(parents=True, exist_ok=True)
@@ -169,6 +180,31 @@ def status():
     })
 
 
+# ─── Pipeline: kirim hasil satu tab ke input tab lain ───
+@app.route("/transfer", methods=["POST"])
+@login_required
+def transfer():
+    """Salin sebuah output dari tab asal ke folder input tab tujuan (sesi sama)."""
+    data = request.json or {}
+    from_tab = data.get("from_tab")
+    to_tab = data.get("to_tab")
+    output_id = data.get("output_id")
+    original = data.get("original") or output_id
+    valid = {"bg", "upscale", "resize"}
+    if from_tab not in valid or to_tab not in valid or from_tab == to_tab:
+        return jsonify({"error": "Tab tidak valid."}), 400
+    if not output_id:
+        return jsonify({"error": "output_id kosong."}), 400
+
+    src = get_work_dir(from_tab) / "output" / output_id
+    if not src.exists():
+        return jsonify({"error": "File sumber tidak ditemukan."}), 404
+
+    new_id = f"{uuid.uuid4().hex}{src.suffix.lower()}"
+    shutil.copy2(src, get_work_dir(to_tab) / "input" / new_id)
+    return jsonify({"id": new_id, "original": original})
+
+
 # ══════════════════════════════════════════════
 # TAB 1 — Remove BG
 # ══════════════════════════════════════════════
@@ -187,11 +223,13 @@ def bg_process(file_id):
     if not in_path.exists():
         return jsonify({"error": "File tidak ditemukan."}), 404
 
-    model_name = request.json.get("model", "birefnet-general") if request.is_json else "birefnet-general"
+    data = request.json if request.is_json else {}
+    model_name = data.get("model", "birefnet-general")
+    bg_color = data.get("bg_color")  # None = transparan, hex = warna solid
     out_name = in_path.stem + "_nobg.png"
     out_path = work / "output" / out_name
 
-    result = bg_remover.process_image(in_path, out_path, model_name)
+    result = bg_remover.process_image(in_path, out_path, model_name, bg_color)
     return jsonify(result), 200 if result["status"] == "ok" else 500
 
 
@@ -210,7 +248,7 @@ def bg_preview(output_id):
     p = get_work_dir("bg") / "output" / output_id
     if not p.exists():
         abort(404)
-    return send_file(p, mimetype="image/png")
+    return send_file(p)  # auto-detect (PNG transparan / JPG solid)
 
 
 @app.route("/bg/download/<output_id>")
@@ -418,6 +456,15 @@ def resize_process(file_id):
         original_name=original_name
     )
     return jsonify(result), 200 if result["status"] == "ok" else 500
+
+
+@app.route("/resize/preview-input/<file_id>")
+@login_required
+def resize_preview_input(file_id):
+    p = get_work_dir("resize") / "input" / file_id
+    if not p.exists():
+        abort(404)
+    return send_file(p)
 
 
 @app.route("/resize/preview/<output_id>")

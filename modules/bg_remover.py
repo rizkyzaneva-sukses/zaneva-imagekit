@@ -51,14 +51,38 @@ def remove_shadow(result_img: Image.Image) -> Image.Image:
     return Image.fromarray(result_np)
 
 
-def process_image(in_path: Path, out_path: Path, model_name: str = DEFAULT_MODEL) -> dict:
-    """Remove background from a single image. Returns dict with status."""
+def _parse_hex(hex_str: str) -> tuple:
+    """Parse hex color '#RRGGBB' / '#RGB' -> (r, g, b). Default putih bila gagal."""
+    hex_str = (hex_str or "").lstrip("#")
+    if len(hex_str) == 3:
+        hex_str = "".join(c * 2 for c in hex_str)
+    try:
+        return tuple(int(hex_str[i:i + 2], 16) for i in (0, 2, 4))
+    except Exception:
+        return (255, 255, 255)
+
+
+def process_image(in_path: Path, out_path: Path, model_name: str = DEFAULT_MODEL,
+                  bg_color: str = None) -> dict:
+    """Remove background from a single image.
+    bg_color None  -> hasil PNG transparan (default).
+    bg_color hex   -> komposit ke warna solid, hasil JPG (mis. '#FFFFFF' untuk Shopee).
+    Returns dict with status."""
     try:
         sess = get_session(model_name)
         img = Image.open(in_path).convert("RGBA")
         result = remove(img, session=sess)
         result = remove_shadow(result)
-        result.save(out_path, format="PNG")
+
+        if bg_color:
+            rgb = _parse_hex(bg_color)
+            canvas = Image.new("RGB", result.size, rgb)
+            canvas.paste(result, mask=result.split()[3])  # alpha channel sebagai mask
+            out_path = out_path.with_suffix(".jpg")
+            canvas.save(out_path, format="JPEG", quality=95, optimize=True)
+        else:
+            result.save(out_path, format="PNG")
+
         in_path.unlink(missing_ok=True)
         return {"status": "ok", "output_id": out_path.name}
     except Exception as e:

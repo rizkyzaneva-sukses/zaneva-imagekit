@@ -166,6 +166,13 @@
                     <option value="birefnet-portrait">birefnet-portrait</option>
                     <option value="isnet-general-use">isnet-general-use</option>
                 </select>
+                <label>Background Hasil</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="bgMode" value="transparent" checked> Transparan</label>
+                    <label><input type="radio" name="bgMode" value="white"> Putih</label>
+                    <label><input type="radio" name="bgMode" value="custom"> Warna</label>
+                </div>
+                <input type="color" id="bgColorPicker" value="#FFFFFF" style="display:none; margin-top:8px; width:100%; height:36px; background:var(--bg); border:1px solid var(--border); border-radius:8px; cursor:pointer;">
             </div>
             <!-- Upscale settings -->
             <div class="sidebar-section" id="settings-upscale" style="display:none">
@@ -208,9 +215,9 @@
                 <div class="dropzone" id="dropzone-bg">
                     <div class="icon">🎨</div>
                     <p>Drag & drop foto, atau <span>pilih file</span></p>
-                    <p class="hint">JPG, PNG, WEBP — Max {{ max_files }} file, {{ max_mb }}MB per file</p>
+                    <p class="hint">JPG, PNG, WEBP, HEIC — Max {{ max_files }} file, {{ max_mb }}MB per file</p>
                 </div>
-                <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.webp">
+                <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif">
                 <div class="stats" id="stats" style="display:none">
                     <div class="stat">📁 Total: <strong id="totalCount">0</strong></div>
                     <div class="stat">✅ Selesai: <strong id="doneCount">0</strong></div>
@@ -232,13 +239,13 @@
                 <div class="dropzone" id="dropzone-upscale" style="display:none">
                     <div class="icon">🔍</div>
                     <p>Drag & drop foto, atau <span>pilih file</span></p>
-                    <p class="hint">JPG, PNG, WEBP — Max {{ max_files }} file</p>
+                    <p class="hint">JPG, PNG, WEBP, HEIC — Max {{ max_files }} file</p>
                 </div>
                 <div id="upscaleLoading" style="text-align:center;padding:48px;color:var(--muted)">
                     <div class="spinner" style="margin:0 auto 16px"></div>
                     <p>Memuat model Upscaler... (butuh 5-10 detik)</p>
                 </div>
-                <input type="file" id="fileInputUpscale" multiple accept=".jpg,.jpeg,.png,.webp">
+                <input type="file" id="fileInputUpscale" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif">
                 <div class="file-grid" id="fileGridUpscale"></div>
                 <div class="batch-actions" id="batchActionsUpscale" style="display:none">
                     <span class="count" id="batchCountUpscale">0 file</span>
@@ -254,9 +261,9 @@
                 <div class="dropzone" id="dropzone-resize">
                     <div class="icon">📐</div>
                     <p>Drag & drop foto, atau <span>pilih file</span></p>
-                    <p class="hint">JPG, PNG, WEBP — Max {{ max_files }} file</p>
+                    <p class="hint">JPG, PNG, WEBP, HEIC — Max {{ max_files }} file</p>
                 </div>
-                <input type="file" id="fileInputResize" multiple accept=".jpg,.jpeg,.png,.webp">
+                <input type="file" id="fileInputResize" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif">
                 <div class="file-grid" id="fileGridResize"></div>
                 <div class="batch-actions" id="batchActionsResize" style="display:none">
                     <span class="count" id="batchCountResize">0 file</span>
@@ -289,18 +296,17 @@
     let currentTab = 'bg';
     let upscaleInitialized = false;
 
-    tabs.forEach(t => t.addEventListener('click', () => {
-        const tab = t.dataset.tab;
+    function activateTab(tab) {
         if (tab === currentTab) return;
-        tabs.forEach(x => x.classList.remove('active'));
+        tabs.forEach(x => x.classList.toggle('active', x.dataset.tab === tab));
         panels.forEach(x => x.classList.remove('active'));
-        t.classList.add('active');
         document.getElementById('panel-' + tab).classList.add('active');
         document.getElementById('settings-' + tab).style.display = 'block';
-        if (currentTab !== tab) document.getElementById('settings-' + currentTab).style.display = 'none';
+        document.getElementById('settings-' + currentTab).style.display = 'none';
         currentTab = tab;
         if (tab === 'upscale' && !upscaleInitialized) initUpscale();
-    }));
+    }
+    tabs.forEach(t => t.addEventListener('click', () => activateTab(t.dataset.tab)));
 
     // ═══════════════════════════════════════
     // RESIZE PRESETS
@@ -325,6 +331,7 @@
     // ═══════════════════════════════════════
     // TOAST / LOADING
     // ═══════════════════════════════════════
+    function esc(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
     function showToast(msg, type = '') {
         const t = document.getElementById('toast');
         t.textContent = msg; t.className = 'toast show ' + type;
@@ -347,6 +354,17 @@
     const dz = document.getElementById('dropzone-bg');
     const fi = document.getElementById('fileInput');
     let bgFiles = [], bgOutputs = [];
+
+    function bgColorValue() {
+        const mode = document.querySelector('input[name="bgMode"]:checked').value;
+        if (mode === 'transparent') return null;
+        if (mode === 'white') return '#FFFFFF';
+        return document.getElementById('bgColorPicker').value;
+    }
+    document.querySelectorAll('input[name="bgMode"]').forEach(r => r.addEventListener('change', () => {
+        document.getElementById('bgColorPicker').style.display =
+            document.querySelector('input[name="bgMode"]:checked').value === 'custom' ? 'block' : 'none';
+    }));
 
     dz.addEventListener('click', () => fi.click());
     dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
@@ -376,7 +394,7 @@
         for (const f of pending) {
             try {
                 const model = document.getElementById('bgModel').value;
-                const res = await fetch('/bg/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model}) });
+                const res = await fetch('/bg/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model, bg_color: bgColorValue()}) });
                 const data = await res.json();
                 if (data.status === 'ok') { f.status = 'done'; f.outputId = data.output_id; bgOutputs.push(data.output_id); }
                 else { f.status = 'error'; f.error = data.error; }
@@ -404,6 +422,8 @@
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/bg/preview/${f.outputId}','_blank')">👁</button>
                     <button class="btn btn-success" onclick="location.href='/bg/download/${f.outputId}'">⬇</button>
+                    <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
+                    <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
                 </div>` : ''}`;
             grid.appendChild(card);
         });
@@ -525,6 +545,8 @@
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/upscale/preview/${f.outputId}','_blank')">👁</button>
                     <button class="btn btn-success" onclick="location.href='/upscale/download/${f.outputId}'">⬇</button>
+                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','bg')">→ Remove BG</button>
+                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
                 </div>` : ''}`;
             grid.appendChild(card);
         });
@@ -644,6 +666,57 @@
         fetch('/resize/clear', { method: 'POST' });
         resizeFiles = []; resizeOutputs = []; renderResize();
         document.getElementById('batchActionsResize').style.display = 'none'; fiR.value = '';
+    }
+
+    // ═══════════════════════════════════════
+    // SHARED: PIPELINE (kirim hasil ke tab lain)
+    // ═══════════════════════════════════════
+    const TAB_LABEL = { bg: 'Remove BG', upscale: 'Upscale', resize: 'Resize' };
+
+    async function sendTo(fromTab, outputId, original, toTab) {
+        showLoading('Mengirim ke ' + TAB_LABEL[toTab] + '...');
+        try {
+            const res = await fetch('/transfer', { method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ from_tab: fromTab, to_tab: toTab, output_id: outputId, original }) });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            hideLoading();
+            activateTab(toTab);
+            if (toTab === 'bg') {
+                bgFiles.push({ id: data.id, original: data.original, status: 'pending', outputId: null });
+                renderBg(); renderBgStats(); processAllBg();
+                showToast('Foto dikirim ke Remove BG', 'success');
+            } else if (toTab === 'resize') {
+                resizeFiles.push({ id: data.id, original: data.original, status: 'pending', outputs: [] });
+                renderResize(); processAllResize();
+                showToast('Foto dikirim ke Resize', 'success');
+            } else if (toTab === 'upscale') {
+                upscaleFiles.push({ id: data.id, original: data.original, status: 'pending', outputId: null, origRes: '', newRes: '' });
+                renderUpscale();
+                showToast('Foto dikirim. Menunggu model Upscaler siap...', 'success');
+                await waitUpscaleReady();
+                processAllUpscale();
+            }
+        } catch (err) { hideLoading(); showToast(err.message, 'error'); }
+    }
+
+    function waitUpscaleReady() {
+        return new Promise(resolve => {
+            if (!upscaleInitialized) initUpscale();
+            const check = async () => {
+                try {
+                    const r = await fetch('/upscale/status'); const d = await r.json();
+                    if (d.status === 'ready') {
+                        document.getElementById('upscaleLoading').style.display = 'none';
+                        document.getElementById('upscaleWarning').style.display = 'none';
+                        document.getElementById('dropzone-upscale').style.display = 'block';
+                        return resolve();
+                    }
+                } catch (e) {}
+                setTimeout(check, 1500);
+            };
+            check();
+        });
     }
 
     // ═══════════════════════════════════════
