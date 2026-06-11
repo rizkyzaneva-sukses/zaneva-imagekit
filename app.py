@@ -3,6 +3,7 @@ import uuid
 import shutil
 import threading
 import time
+import tempfile
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -22,11 +23,13 @@ app.secret_key = os.environ.get("SECRET_KEY", "changeme-imagekit")
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "zaneva2024")
 MAX_FILES = int(os.environ.get("MAX_FILES", 30))
 MAX_FILE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", 20))
-TMP_BASE = Path("/tmp/imagekit")
+# Cross-platform temp dir. On Linux/Docker -> /tmp/imagekit, on Windows -> %TEMP%\imagekit.
+# Override with TMP_DIR env var if needed.
+TMP_BASE = Path(os.environ.get("TMP_DIR") or (Path(tempfile.gettempdir()) / "imagekit"))
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 APP_VERSION = "1.0.0"
 
-TMP_BASE.mkdir(exist_ok=True)
+TMP_BASE.mkdir(parents=True, exist_ok=True)
 
 # ─── Import modules ───
 from modules import bg_remover, upscaler, resizer
@@ -76,7 +79,7 @@ def get_work_dir(tab: str) -> Path:
 
 
 def _check_disk():
-    stat = shutil.disk_usage("/")
+    stat = shutil.disk_usage(str(TMP_BASE))
     free_gb = stat.free / (1024 ** 3)
     if free_gb < 1.0:
         return False, f"Disk hampir penuh ({free_gb:.1f}GB tersisa)"
@@ -150,7 +153,7 @@ def index():
 # ─── Status ───
 @app.route("/status")
 def status():
-    disk = shutil.disk_usage("/")
+    disk = shutil.disk_usage(str(TMP_BASE))
     tmp_size = sum(f.stat().st_size for f in TMP_BASE.rglob("*") if f.is_file())
     return jsonify({
         "version": APP_VERSION,

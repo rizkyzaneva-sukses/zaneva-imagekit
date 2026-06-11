@@ -1,3 +1,4 @@
+# ─── Core (Remove BG + Resize + server) ───
 flask>=3.0.0
 rembg[cpu]>=2.0.0
 pillow>=10.0.0
@@ -5,3 +6,14 @@ numpy>=1.24.0
 opencv-python-headless>=4.8.0
 python-dotenv>=1.0.0
 gunicorn>=21.0.0
+
+# ─── Optional: Upscale tab (Real-ESRGAN) ───
+# Install separately via setup.sh (torch CPU wheel), atau uncomment baris di bawah.
+# CATATAN: basicsr tidak kompatibel dengan torchvision>=0.17
+# (import torchvision.transforms.functional_tensor sudah dihapus).
+# Lihat README untuk patch. Tanpa ini, tab Upscale akan error saat dipakai
+# tetapi Remove BG & Resize tetap berjalan normal.
+# torch
+# torchvision
+# realesrgan
+# basicsr

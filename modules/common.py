@@ -4,6 +4,7 @@ Shared utilities untuk semua modul Zaneva ImageKit
 """
 import os
 import uuid
+import tempfile
 from pathlib import Path
 from functools import wraps
 from flask import session, redirect, url_for
@@ -12,8 +13,8 @@ MAX_FILES = int(os.environ.get('MAX_FILES', 30))
 MAX_FILE_MB = int(os.environ.get('MAX_FILE_SIZE_MB', 20))
 ALLOWED_EXT = {'.jpg', '.jpeg', '.png', '.webp'}
 
-TMP_BASE = Path('/tmp/zaneva_imagekit')
-TMP_BASE.mkdir(exist_ok=True)
+TMP_BASE = Path(os.environ.get('TMP_DIR') or (Path(tempfile.gettempdir()) / 'zaneva_imagekit'))
+TMP_BASE.mkdir(parents=True, exist_ok=True)
 
 
 def login_required(f):
