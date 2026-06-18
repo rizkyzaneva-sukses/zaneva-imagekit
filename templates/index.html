@@ -91,6 +91,14 @@
         .file-card .btn-del { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.7); border: none; color: var(--error); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; }
         .file-card:hover .btn-del { opacity: 1; }
 
+        /* Stopwatch */
+        .stopwatch { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); margin-top: 4px; letter-spacing: .02em; }
+        .stopwatch.running { color: #60a5fa; }
+        .stopwatch.done    { color: #4ade80; }
+        .stopwatch-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        .stopwatch.running .stopwatch-dot { animation: sw-pulse 1s ease-in-out infinite; }
+        @keyframes sw-pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+
         /* Buttons */
         .btn { padding: 7px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; font-family: inherit; }
         .btn-primary { background: var(--accent-blue); color: white; }
@@ -547,11 +555,38 @@
             let data;
             try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 100)); }
             if (data.error) throw new Error(data.error);
-            for (const f of data.accepted) upscaleFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null, origRes: '', newRes: '' });
+            for (const f of data.accepted) upscaleFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null, origRes: '', newRes: '', startedAt: null, elapsed: null });
             if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
             renderUpscale(); processAllUpscale();
         } catch (err) { showToast(err.message, 'error'); }
         hideLoading();
+    }
+
+    // ── Stopwatch helpers ──
+    const _swTimers = {};  // file.id -> intervalId
+
+    function _swFmt(ms) {
+        const s = Math.floor(ms / 1000);
+        const m = Math.floor(s / 60);
+        const ss = String(s % 60).padStart(2, '0');
+        const mm = String(m % 60).padStart(2, '0');
+        return m > 0 ? `${mm}:${ss} menit` : `${s}.${String(Math.floor((ms % 1000) / 100))}s`;
+    }
+
+    function _swStart(f) {
+        if (_swTimers[f.id]) return;  // sudah berjalan
+        f.startedAt = Date.now();
+        _swTimers[f.id] = setInterval(() => {
+            f._liveMs = Date.now() - f.startedAt;
+            // Update hanya elemen stopwatch di DOM tanpa render ulang seluruh grid
+            const el = document.getElementById('sw-' + f.id);
+            if (el) el.textContent = _swFmt(f._liveMs);
+        }, 100);
+    }
+
+    function _swStop(f) {
+        if (_swTimers[f.id]) { clearInterval(_swTimers[f.id]); delete _swTimers[f.id]; }
+        f.elapsed = f._liveMs || (Date.now() - (f.startedAt || Date.now()));
     }
 
     async function processAllUpscale() {
@@ -559,17 +594,21 @@
         const pending = upscaleFiles.filter(f => f.status === 'pending');
         let done = 0;
         for (const f of pending) {
+            f.status = 'processing';
+            renderUpscale();
+            _swStart(f);   // ← mulai stopwatch
             try {
                 const model = document.getElementById('upscaleModel').value;
                 const scale = parseInt(document.getElementById('upscaleScale').value);
                 const res = await fetch('/upscale/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model, scale}) });
-                if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+                if (res.status === 401 || res.redirected) { _swStop(f); location.href = '/login'; return; }
                 const text = await res.text();
                 let data;
                 try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 80)); }
+                _swStop(f);  // ← hentikan stopwatch
                 if (data.status === 'ok') { f.status = 'done'; f.outputId = data.output_id; f.origRes = data.orig_res; f.newRes = data.new_res; upscaleOutputs.push(data.output_id); }
                 else { f.status = 'error'; f.error = data.error; }
-            } catch (err) { f.status = 'error'; f.error = err.message; }
+            } catch (err) { _swStop(f); f.status = 'error'; f.error = err.message; }
             done++; showProgress(done / pending.length * 100); renderUpscale();
         }
         hideLoading(); hideProgress();
@@ -584,11 +623,33 @@
         upscaleFiles.forEach((f, i) => {
             const card = document.createElement('div'); card.className = 'file-card';
             const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
-            const st = f.status === 'done' ? `✅ ${f.origRes} → ${f.newRes}` : f.status === 'error' ? '❌ ' + (f.error||'Error') : '⏳ Menunggu...';
+
+            // Status text
+            let st;
+            if (f.status === 'done') {
+                st = `✅ ${f.origRes} → ${f.newRes}`;
+            } else if (f.status === 'error') {
+                st = '❌ ' + (f.error || 'Error');
+            } else if (f.status === 'processing') {
+                st = '⚙️ Memproses...';
+            } else {
+                st = '⏳ Menunggu...';
+            }
+
+            // Stopwatch HTML
+            let swHtml = '';
+            if (f.status === 'processing') {
+                // Live timer — id unik agar interval bisa update langsung
+                const liveMs = f._liveMs || 0;
+                swHtml = `<div class="stopwatch running"><span class="stopwatch-dot"></span><span id="sw-${f.id}">${_swFmt(liveMs)}</span></div>`;
+            } else if ((f.status === 'done' || f.status === 'error') && f.elapsed != null) {
+                swHtml = `<div class="stopwatch done"><span class="stopwatch-dot"></span><span>Selesai dalam ${_swFmt(f.elapsed)}</span></div>`;
+            }
+
             const src = f.status === 'done' && f.outputId ? '/upscale/preview/' + f.outputId : '/upscale/preview-input/' + f.id;
             card.innerHTML = `<button class="btn-del" onclick="deleteUpscale(${i})">×</button>
                 <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
-                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
+                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div>${swHtml}</div>
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/upscale/preview/${f.outputId}','_blank')">👁</button>
                     <button class="btn btn-success" onclick="location.href='/upscale/download/${f.outputId}'">⬇</button>
