@@ -127,6 +127,13 @@
         /* Warning banner */
         .warning-banner { background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.3); border-radius: 8px; padding: 10px 16px; font-size: 12px; color: #FDE68A; margin-bottom: 16px; display: none; }
 
+        /* Provider badge */
+        .provider-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; margin-bottom: 14px; }
+        .provider-badge.gpu-cuda { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.4); color: #4ade80; }
+        .provider-badge.gpu-dml  { background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.4); color: #60a5fa; }
+        .provider-badge.cpu      { background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.3); color: #94a3b8; }
+        .provider-badge.detecting{ background: rgba(234,179,8,.1);  border: 1px solid rgba(234,179,8,.3);  color: #fde68a; }
+
         /* Sidebar collapse for mobile */
         @media (max-width: 768px) {
             .main { flex-direction: column; }
@@ -235,7 +242,10 @@
 
             <!-- Upscale Panel -->
             <div class="panel" id="panel-upscale">
-                <div class="warning-banner" id="upscaleWarning">⚠️ Proses CPU, jangan tutup browser. Model sedang dimuat...</div>
+                <div class="warning-banner" id="upscaleWarning">⚙️ Model sedang dimuat, mendeteksi GPU...</div>
+                <div id="providerBadgeWrap" style="display:none">
+                    <span class="provider-badge detecting" id="providerBadge">⏳ Mendeteksi...</span>
+                </div>
                 <div class="dropzone" id="dropzone-upscale" style="display:none">
                     <div class="icon">🔍</div>
                     <p>Drag & drop foto, atau <span>pilih file</span></p>
@@ -243,7 +253,7 @@
                 </div>
                 <div id="upscaleLoading" style="text-align:center;padding:48px;color:var(--muted)">
                     <div class="spinner" style="margin:0 auto 16px"></div>
-                    <p>Memuat model Upscaler... (butuh 5-10 detik)</p>
+                    <p>Memuat model Upscaler... mendeteksi GPU/CPU</p>
                 </div>
                 <input type="file" id="fileInputUpscale" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif">
                 <div class="file-grid" id="fileGridUpscale"></div>
@@ -477,17 +487,42 @@
         } catch (err) { showToast('Gagal init upscaler', 'error'); }
     }
 
+    function _applyProviderBadge(provider) {
+        const badge = document.getElementById('providerBadge');
+        const wrap  = document.getElementById('providerBadgeWrap');
+        if (!badge || !wrap) return;
+        wrap.style.display = 'block';
+        if (provider === 'CUDAExecutionProvider') {
+            badge.className = 'provider-badge gpu-cuda';
+            badge.textContent = '🟢 GPU: NVIDIA CUDA';
+        } else if (provider === 'DmlExecutionProvider') {
+            badge.className = 'provider-badge gpu-dml';
+            badge.textContent = '🔵 GPU: DirectML (Windows)';
+        } else if (provider === 'CPUExecutionProvider') {
+            badge.className = 'provider-badge cpu';
+            badge.textContent = '⚪ CPU';
+        } else {
+            badge.className = 'provider-badge detecting';
+            badge.textContent = '⏳ Mendeteksi...';
+        }
+    }
+
     async function pollUpscaleStatus() {
         const interval = setInterval(async () => {
             try {
                 const res = await fetch('/upscale/status');
+                if (res.status === 401 || res.redirected) { clearInterval(interval); location.href = '/login'; return; }
                 const data = await res.json();
                 if (data.status === 'ready') {
                     clearInterval(interval);
                     document.getElementById('upscaleLoading').style.display = 'none';
                     document.getElementById('upscaleWarning').style.display = 'none';
                     document.getElementById('dropzone-upscale').style.display = 'block';
-                    showToast('Model Upscaler siap!', 'success');
+                    _applyProviderBadge(data.provider);
+                    const gpuLabel = data.provider === 'CUDAExecutionProvider' ? 'NVIDIA CUDA'
+                                   : data.provider === 'DmlExecutionProvider'  ? 'DirectML GPU'
+                                   : 'CPU';
+                    showToast('Model Upscaler siap! Menggunakan ' + gpuLabel, 'success');
                 }
             } catch (e) {}
         }, 2000);

@@ -4,6 +4,8 @@ Bobot model = konversi langsung dari RealESRGAN_*.pth resmi (lihat
 convert_to_onnx.py), jadi hasilnya identik dengan versi torch.
 Tiling meniru RealESRGANer (tile 256 + pad 10) agar bebas seam dan
 hemat RAM untuk gambar besar.
+
+Provider priority: CUDA → DirectML → CPU (auto-detect).
 """
 import threading
 from pathlib import Path
@@ -12,9 +14,10 @@ import numpy as np
 from PIL import Image
 
 _lock = threading.Lock()
-_sessions = {}  # model_name -> onnxruntime.InferenceSession
+_sessions = {}       # model_name -> onnxruntime.InferenceSession
 _loading = False
 _loaded = False
+_active_provider = "CPUExecutionProvider"  # akan di-update saat init
 
 MODEL_DIR = Path(__file__).parent.parent / "models"
 ALLOWED_MODELS = ["RealESRGAN_x4plus", "RealESRGAN_x2plus"]
@@ -25,7 +28,33 @@ TILE = 256
 TILE_PAD = 10  # genap, agar dimensi tile tetap genap (syarat model x2)
 
 
-def _load_model(model_name: str):
+def _get_best_providers() -> list:
+    """Deteksi otomatis provider terbaik yang tersedia.
+    Priority: CUDA (NVIDIA) → DirectML (Windows GPU universal) → CPU.
+    """
+    import onnxruntime as ort
+    available = ort.get_available_providers()
+    print(f"[Upscaler] Available providers: {available}")
+
+    if "CUDAExecutionProvider" in available:
+        print("[Upscaler] ✅ GPU: NVIDIA CUDA dipilih")
+        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    if "DmlExecutionProvider" in available:
+        print("[Upscaler] ✅ GPU: DirectML (Windows) dipilih")
+        return ["DmlExecutionProvider", "CPUExecutionProvider"]
+
+    print("[Upscaler] ⚪ Fallback: CPU digunakan")
+    return ["CPUExecutionProvider"]
+
+
+def _detect_active_provider(providers: list) -> str:
+    """Kembalikan nama provider utama yang dipakai (bukan fallback)."""
+    return providers[0]
+
+
+def _load_model(model_name: str, providers: list):
+    """Internal: load a single ONNX model dengan providers yang ditentukan."""
     import onnxruntime as ort
 
     onnx_path = MODEL_DIR / f"{model_name}.onnx"
@@ -36,35 +65,55 @@ def _load_model(model_name: str):
         )
     opts = ort.SessionOptions()
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    _sessions[model_name] = ort.InferenceSession(
-        str(onnx_path), sess_options=opts, providers=["CPUExecutionProvider"]
-    )
-    print(f"[Upscaler] Model loaded: {model_name}")
+
+    try:
+        sess = ort.InferenceSession(str(onnx_path), sess_options=opts, providers=providers)
+    except Exception as e:
+        # Jika GPU provider gagal (misal CUDA tidak cocok), fallback ke CPU
+        print(f"[Upscaler] ⚠️ Provider {providers[0]} gagal ({e}), fallback CPU")
+        sess = ort.InferenceSession(
+            str(onnx_path), sess_options=opts,
+            providers=["CPUExecutionProvider"]
+        )
+
+    _sessions[model_name] = sess
+    print(f"[Upscaler] Model loaded: {model_name} | provider: {sess.get_providers()[0]}")
 
 
 def init() -> dict:
     """Lazy-load all upscale models. Called only when Upscale tab is first accessed.
-    Returns {status: 'ready'|'loading'|'error', message: str}"""
-    global _loading, _loaded
+    Returns {status: 'ready'|'loading'|'error', message: str, provider: str}"""
+    global _loading, _loaded, _active_provider
 
     with _lock:
         if _loaded:
-            return {"status": "ready", "message": "Model sudah siap"}
+            return {"status": "ready", "message": "Model sudah siap", "provider": _active_provider}
         if _loading:
-            return {"status": "loading", "message": "Model sedang dimuat..."}
+            return {"status": "loading", "message": "Model sedang dimuat...", "provider": _active_provider}
         _loading = True
 
     try:
+        providers = _get_best_providers()
+        _active_provider = _detect_active_provider(providers)
+
         for m in ALLOWED_MODELS:
-            _load_model(m)
+            _load_model(m, providers)
+
+        # Verifikasi provider yang benar-benar dipakai setelah load
+        if _sessions:
+            first_sess = next(iter(_sessions.values()))
+            actual = first_sess.get_providers()
+            _active_provider = actual[0] if actual else providers[0]
+            print(f"[Upscaler] ✅ Aktif menggunakan: {_active_provider}")
+
         with _lock:
             _loaded = True
             _loading = False
-        return {"status": "ready", "message": "Model berhasil dimuat"}
+        return {"status": "ready", "message": "Model berhasil dimuat", "provider": _active_provider}
     except Exception as e:
         with _lock:
             _loading = False
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "provider": "none"}
 
 
 def is_ready() -> bool:
@@ -75,13 +124,16 @@ def is_loading() -> bool:
     return _loading
 
 
+def get_provider() -> str:
+    """Kembalikan provider yang sedang aktif digunakan."""
+    return _active_provider
+
+
 def _enhance(sess, img: np.ndarray, model_scale: int) -> np.ndarray:
     """Tiled inference. img: float32 CHW RGB 0..1 -> CHW hasil model_scale x."""
     c, h, w = img.shape
 
     # Model x2 memakai pixel_unshuffle -> dimensi input wajib genap.
-    # Pad seluruh gambar ke genap; karena TILE & TILE_PAD juga genap,
-    # semua potongan tile otomatis berdimensi genap.
     pad_h = h % 2 if model_scale == 2 else 0
     pad_w = w % 2 if model_scale == 2 else 0
     if pad_h or pad_w:
@@ -92,14 +144,12 @@ def _enhance(sess, img: np.ndarray, model_scale: int) -> np.ndarray:
     for y0 in range(0, ph, TILE):
         for x0 in range(0, pw, TILE):
             y1, x1 = min(y0 + TILE, ph), min(x0 + TILE, pw)
-            # ambil tile + padding konteks di sekelilingnya
             py0, px0 = max(y0 - TILE_PAD, 0), max(x0 - TILE_PAD, 0)
             py1, px1 = min(y1 + TILE_PAD, ph), min(x1 + TILE_PAD, pw)
 
             inp = img[:, py0:py1, px0:px1][np.newaxis]
             pred = sess.run(None, {"input": inp})[0][0]
 
-            # buang area padding dari hasil, tempel ke kanvas output
             oy = (y0 - py0) * model_scale
             ox = (x0 - px0) * model_scale
             out[:, y0 * model_scale:y1 * model_scale,
@@ -132,8 +182,6 @@ def process_image(in_path: Path, out_dir: Path,
         out = (np.clip(out, 0, 1).transpose(1, 2, 0) * 255.0).round().astype(np.uint8)
         output_pil = Image.fromarray(out)
 
-        # Scale yang diminta != scale native model -> resize (perilaku
-        # sama dengan parameter outscale di RealESRGANer).
         target = (orig_w * scale, orig_h * scale)
         if output_pil.size != target:
             output_pil = output_pil.resize(target, Image.LANCZOS)
@@ -152,6 +200,7 @@ def process_image(in_path: Path, out_dir: Path,
             "output_id": final_name,
             "orig_res": f"{orig_w}×{orig_h}",
             "new_res": f"{new_w}×{new_h}",
+            "provider": _active_provider,
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}

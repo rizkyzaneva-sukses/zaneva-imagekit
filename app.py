@@ -178,7 +178,8 @@ def status():
         "version": APP_VERSION,
         "models": {
             "rembg": "loaded" if bg_remover.loaded_models() else "lazy",
-            "upscaler": "loaded" if upscaler.is_ready() else ("loading" if upscaler.is_loading() else "lazy")
+            "upscaler": "loaded" if upscaler.is_ready() else ("loading" if upscaler.is_loading() else "lazy"),
+            "upscaler_provider": upscaler.get_provider() if upscaler.is_ready() else "none",
         },
         "disk": {
             "total_gb": round(disk.total / 1024**3, 1),
@@ -317,25 +318,28 @@ def bg_delete_output(output_id):
 def upscale_init():
     """Lazy-load upscaler models. Called when Upscale tab is first opened."""
     if upscaler.is_ready():
-        return jsonify({"status": "ready", "message": "Model sudah siap"})
+        return jsonify({"status": "ready", "message": "Model sudah siap",
+                        "provider": upscaler.get_provider()})
     if upscaler.is_loading():
-        return jsonify({"status": "loading", "message": "Model sedang dimuat..."})
+        return jsonify({"status": "loading", "message": "Model sedang dimuat...",
+                        "provider": "detecting"})
     # Trigger load in background thread so we don't block the response
     def _load():
         upscaler.init()
     threading.Thread(target=_load, daemon=True).start()
-    return jsonify({"status": "loading", "message": "Memuat model Upscaler..."})
+    return jsonify({"status": "loading", "message": "Memuat model Upscaler...",
+                    "provider": "detecting"})
 
 
 @app.route("/upscale/status", methods=["GET"])
 @login_required
 def upscale_status():
     if upscaler.is_ready():
-        return jsonify({"status": "ready"})
+        return jsonify({"status": "ready", "provider": upscaler.get_provider()})
     elif upscaler.is_loading():
-        return jsonify({"status": "loading"})
+        return jsonify({"status": "loading", "provider": "detecting"})
     else:
-        return jsonify({"status": "idle"})
+        return jsonify({"status": "idle", "provider": "none"})
 
 
 @app.route("/upscale/upload", methods=["POST"])
