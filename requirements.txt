@@ -1,6 +1,6 @@
 # ─── Core (Remove BG + Resize + server) ───
 flask>=3.0.0
-rembg[cpu]>=2.0.0
+rembg[gpu]>=2.0.0
 pillow>=10.0.0
 pillow-heif>=0.16.0
 numpy>=1.24.0
