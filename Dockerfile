@@ -1,35 +1,55 @@
-# ── GPU-capable image: CUDA 12.2 runtime + Python 3.11 ──────────────────────
-# onnxruntime-gpu (ditarik oleh rembg[gpu]) membutuhkan libcuda / libcublas
-# yang sudah tersedia di base image ini.
-# Tanpa GPU pun container tetap jalan — CUDA provider akan gracefully
-# fallback ke CPUExecutionProvider secara otomatis.
+# ── GPU-capable image: CUDA 12.2 + cuDNN 9 + Python 3.11 ─────────────────
+# onnxruntime-gpu membutuhkan:
+#   1. libcublas, libcufft, libcurand  → sudah ada di CUDA runtime image
+#   2. libcudnn9                       → install manual di bawah
+# Tanpa GPU, container tetap jalan → otomatis fallback ke CPU.
+# ──────────────────────────────────────────────────────────────────────────
 FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 WORKDIR /app
 
-# Install Python 3.11 + system dependencies
+# ── Step 1: Install cuDNN 9 + Python 3.11 + system deps ──
+# cuDNN 9 wajib agar CUDAExecutionProvider di onnxruntime-gpu bisa aktif.
+# Tanpa cuDNN → onnxruntime fallback ke CPU (libcudnn.so.9 not found).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-dev python3-pip \
-        libgl1 libglib2.0-0 && \
-    rm -rf /var/lib/apt/lists/* && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
-    update-alternatives --install /usr/bin/python  python  /usr/bin/python3.11 1 && \
-    python -m pip install --no-cache-dir --upgrade pip
+        python3.11 python3.11-dev python3.11-venv python3-pip \
+        libgl1 libglib2.0-0 \
+        libcudnn9-cuda-12 \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python  python  /usr/bin/python3.11 1 \
+    && python -m pip install --no-cache-dir --upgrade pip
 
+# ── Step 2: Install Python dependencies ──
+# rembg[gpu] akan install onnxruntime-gpu (bukan onnxruntime biasa).
+# onnxruntime-gpu sudah include CPUExecutionProvider sebagai fallback.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download BG models saat build (layer ini di-cache — tidak diulang
-# setiap kali kode berubah, karena diletakkan SEBELUM `COPY . .`).
+# ── Step 3: Verifikasi GPU provider tersedia ──
+# Build akan gagal jika onnxruntime-gpu tidak bisa detect CUDA libs.
+# Ini mencegah deploy container yang diam-diam fallback ke CPU.
+RUN python -c "\
+import onnxruntime as ort; \
+providers = ort.get_available_providers(); \
+print('Available providers:', providers); \
+assert 'CUDAExecutionProvider' in providers, \
+    'GAGAL: CUDAExecutionProvider tidak tersedia! Cek instalasi CUDA/cuDNN.'; \
+print('OK: CUDAExecutionProvider tersedia')"
+
+# ── Step 4: Pre-download BG remover models (cached layer) ──
 # isnet (~170MB, default) + birefnet (~930MB, opsi "Best" di dropdown).
+# Diletakkan SEBELUM `COPY . .` agar tidak re-download saat kode berubah.
 RUN python -c "from rembg import new_session; new_session('isnet-general-use'); new_session('birefnet-general')"
 
-# Kode + model upscaler ONNX (models/*.onnx ikut repo)
+# ── Step 5: Copy kode + model ONNX ──
 COPY . .
 
 EXPOSE ${PORT:-5000}
 
-# gthread: satu worker dengan 2 thread — proses upscale panjang tidak blokir
-# status-polling atau request lain. Timeout 600s untuk gambar besar x4plus.
+# gthread: 1 worker + 2 threads → proses upscale tidak blokir status-polling.
+# Timeout 600s → x4plus gambar besar butuh waktu lebih lama.
 CMD sh -c 'gunicorn -w 1 --worker-class gthread --threads 2 -b 0.0.0.0:${PORT:-5000} --timeout 600 --graceful-timeout 30 app:app'
