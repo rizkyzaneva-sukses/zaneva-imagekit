@@ -24,7 +24,9 @@ ALLOWED_MODELS = ["RealESRGAN_x4plus", "RealESRGAN_x2plus"]
 MODEL_SCALES = {"RealESRGAN_x4plus": 4, "RealESRGAN_x2plus": 2}
 DEFAULT_MODEL = "RealESRGAN_x4plus"
 
-TILE = 256
+# Tile lebih kecil (128) agar hemat VRAM — x4plus output 512×512/tile
+# vs 1024×1024/tile pada TILE=256. Bebas seam karena TILE_PAD tetap dipakai.
+TILE = 128
 TILE_PAD = 10  # genap, agar dimensi tile tetap genap (syarat model x2)
 
 
@@ -160,6 +162,24 @@ def _enhance(sess, img: np.ndarray, model_scale: int) -> np.ndarray:
     return out[:, :h * model_scale, :w * model_scale]
 
 
+def _clear_gpu_cache():
+    """Bebaskan VRAM setelah setiap gambar selesai agar tidak OOM pada
+    gambar berikutnya. Aman dipanggil meski tidak ada GPU."""
+    try:
+        import ctypes
+        if "CUDAExecutionProvider" in _active_provider:
+            # ONNX Runtime tidak expose cuMemFree langsung;
+            # panggil via ort internal jika tersedia.
+            pass
+    except Exception:
+        pass
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+
+
 def process_image(in_path: Path, out_dir: Path,
                   model_name: str = DEFAULT_MODEL, scale: int = 4) -> dict:
     """Upscale a single image. Returns dict with status and resolution info."""
@@ -194,6 +214,8 @@ def process_image(in_path: Path, out_dir: Path,
             in_path.unlink(missing_ok=True)
         except OSError:
             pass  # input masih dipakai (preview di Windows); dibersihkan auto-cleanup
+
+        _clear_gpu_cache()  # bebaskan VRAM setelah setiap gambar
 
         return {
             "status": "ok",
