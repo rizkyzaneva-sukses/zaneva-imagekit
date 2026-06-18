@@ -70,7 +70,7 @@
         .dropzone p { color: var(--muted); font-size: 14px; }
         .dropzone p span { color: var(--accent-blue); text-decoration: underline; }
         .dropzone .hint { font-size: 12px; color: #475569; margin-top: 8px; }
-        #fileInput { display: none; }
+        #fileInput, #fileInputUpscale, #fileInputResize { display: none; }
 
         /* Stats */
         .stats { display: flex; gap: 12px; margin-top: 16px; font-size: 13px; color: var(--muted); }
@@ -378,7 +378,10 @@
         for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
         try {
             const res = await fetch('/bg/upload', { method: 'POST', body: fd });
-            const data = await res.json();
+            if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 100)); }
             if (data.error) throw new Error(data.error);
             for (const f of data.accepted) bgFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null });
             if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
@@ -395,7 +398,10 @@
             try {
                 const model = document.getElementById('bgModel').value;
                 const res = await fetch('/bg/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model, bg_color: bgColorValue()}) });
-                const data = await res.json();
+                if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 80)); }
                 if (data.status === 'ok') { f.status = 'done'; f.outputId = data.output_id; bgOutputs.push(data.output_id); }
                 else { f.status = 'error'; f.error = data.error; }
             } catch (err) { f.status = 'error'; f.error = err.message; }
@@ -501,7 +507,10 @@
         for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
         try {
             const res = await fetch('/upscale/upload', { method: 'POST', body: fd });
-            const data = await res.json();
+            if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 100)); }
             if (data.error) throw new Error(data.error);
             for (const f of data.accepted) upscaleFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null, origRes: '', newRes: '' });
             if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
@@ -519,7 +528,10 @@
                 const model = document.getElementById('upscaleModel').value;
                 const scale = parseInt(document.getElementById('upscaleScale').value);
                 const res = await fetch('/upscale/process/' + f.id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({model, scale}) });
-                const data = await res.json();
+                if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 80)); }
                 if (data.status === 'ok') { f.status = 'done'; f.outputId = data.output_id; f.origRes = data.orig_res; f.newRes = data.new_res; upscaleOutputs.push(data.output_id); }
                 else { f.status = 'error'; f.error = data.error; }
             } catch (err) { f.status = 'error'; f.error = err.message; }

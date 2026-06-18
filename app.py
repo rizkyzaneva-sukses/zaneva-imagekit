@@ -5,6 +5,7 @@ import threading
 import time
 import tempfile
 import zipfile
+from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
 from functools import wraps
@@ -28,6 +29,8 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "changeme-imagekit")
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=12)
+app.config["SESSION_PERMANENT"] = True
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "zaneva2024")
 MAX_FILES = int(os.environ.get("MAX_FILES", 30))
@@ -135,6 +138,7 @@ def login():
     error = None
     if request.method == "POST":
         if request.form.get("password") == APP_PASSWORD:
+            session.permanent = True
             session["authenticated"] = True
             session.pop("sid", None)
             return redirect(url_for("index"))
