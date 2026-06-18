@@ -33,20 +33,30 @@ TILE_PAD = 10  # genap, agar dimensi tile tetap genap (syarat model x2)
 def _get_best_providers() -> list:
     """Deteksi otomatis provider terbaik yang tersedia.
     Priority: CUDA (NVIDIA) → DirectML (Windows GPU universal) → CPU.
+
+    CATATAN: TensorrtExecutionProvider sengaja DI-SKIP.
+    TRT melakukan JIT-compile model saat pertama run — bisa timeout / crash
+    untuk model kompleks seperti x4plus (23 RRDB blocks).
+    CUDAExecutionProvider sudah GPU-accelerated tanpa overhead TRT.
     """
     import onnxruntime as ort
     available = ort.get_available_providers()
-    print(f"[Upscaler] Available providers: {available}")
+    # Buang TRT dan OpenVINO agar tidak dipilih secara otomatis
+    safe = [p for p in available if p not in (
+        "TensorrtExecutionProvider", "OpenVINOExecutionProvider"
+    )]
+    print(f"[Upscaler] Available: {available}")
+    print(f"[Upscaler] Safe providers (no TRT): {safe}")
 
-    if "CUDAExecutionProvider" in available:
-        print("[Upscaler] ✅ GPU: NVIDIA CUDA dipilih")
+    if "CUDAExecutionProvider" in safe:
+        print("[Upscaler] ✅ GPU: NVIDIA CUDA (tanpa TensorRT)")
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
-    if "DmlExecutionProvider" in available:
-        print("[Upscaler] ✅ GPU: DirectML (Windows) dipilih")
+    if "DmlExecutionProvider" in safe:
+        print("[Upscaler] ✅ GPU: DirectML (Windows)")
         return ["DmlExecutionProvider", "CPUExecutionProvider"]
 
-    print("[Upscaler] ⚪ Fallback: CPU digunakan")
+    print("[Upscaler] ⚪ Fallback: CPU")
     return ["CPUExecutionProvider"]
 
 
