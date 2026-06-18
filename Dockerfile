@@ -10,10 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Pre-download BG models saat build (layer ini di-cache — tidak diulang
+# setiap kali kode berubah, karena diletakkan SEBELUM `COPY . .`).
+# isnet (~170MB, default) + birefnet (~930MB, opsi "Best" di dropdown).
+RUN python -c "from rembg import new_session; new_session('isnet-general-use'); new_session('birefnet-general')"
 
-# Pre-download BG model during build (birefnet-general ~1GB)
-RUN python -c "from rembg import new_session; new_session('birefnet-general')"
+# Kode + model upscaler ONNX (models/*.onnx ikut repo)
+COPY . .
 
 EXPOSE ${PORT:-5000}
 

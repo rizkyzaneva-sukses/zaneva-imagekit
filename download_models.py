@@ -1,4 +1,8 @@
-"""Download RealESRGAN model weights ke folder models/."""
+"""Download bobot RealESRGAN .pth resmi ke folder models/.
+
+HANYA dibutuhkan untuk konversi ulang ke ONNX (convert_to_onnx.py).
+Runtime app memakai models/*.onnx yang sudah ikut repo — tidak perlu
+menjalankan script ini untuk deploy/pakai biasa."""
 import os
 import urllib.request
 from pathlib import Path

@@ -3,5 +3,14 @@ __pycache__
 .git
 .env
 venv/
+.venv/
+.venv-convert/
 tmp_*
 models/*.pth
+dist/
+build/
+test_exe.py
+convert_to_onnx.py
+*.spec
+build_exe.bat
+desktop.py

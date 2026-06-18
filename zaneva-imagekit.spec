@@ -10,7 +10,11 @@ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 # submodule harus dipaksa ikut ke bundle.
 hiddenimports = collect_submodules("rembg") + ["pillow_heif"]
 
-datas = [("templates", "templates")]
+datas = [
+    ("templates", "templates"),
+    ("models/RealESRGAN_x4plus.onnx", "models"),
+    ("models/RealESRGAN_x2plus.onnx", "models"),
+]
 # Beberapa package membaca versinya sendiri via importlib.metadata saat
 # runtime, jadi metadata-nya wajib ikut dibundel.
 for pkg in ("rembg", "pymatting", "pooch", "pillow_heif"):

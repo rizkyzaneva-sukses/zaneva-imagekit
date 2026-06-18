@@ -1,4 +1,5 @@
 import os
+import sys
 import uuid
 import shutil
 import threading
@@ -25,6 +26,10 @@ except Exception as e:  # pragma: no cover
     print(f"[ImageKit] HEIC support tidak aktif: {e}")
     _HEIC_OK = False
 
+# Versi exe (PyInstaller): baca .env yang diletakkan di samping exe-nya,
+# apa pun working directory saat app dijalankan.
+if getattr(sys, "frozen", False):
+    load_dotenv(Path(sys.executable).parent / ".env")
 load_dotenv()
 
 app = Flask(__name__)
@@ -48,10 +53,9 @@ TMP_BASE.mkdir(parents=True, exist_ok=True)
 # ─── Import modules ───
 from modules import bg_remover, upscaler, resizer
 
-# Pre-load BG model at startup
-print("[ImageKit] Pre-loading BG Remover default model...")
-bg_remover.preload_default()
-print("[ImageKit] Startup ready. Upscaler is lazy (not loaded yet).")
+# Semua model lazy-load: BG remover dimuat saat pertama dipakai (~beberapa
+# detik untuk isnet), upscaler saat tab Upscale dibuka. Startup jadi instan.
+print("[ImageKit] Startup ready. Models load lazily on first use.")
 
 
 # ─── Auto-cleanup (24h) ───
@@ -137,7 +141,7 @@ def handle_upload(tab: str):
 def login():
     error = None
     if request.method == "POST":
-        if request.form.get("password") == APP_PASSWORD:
+        if request.form.get("password", "").strip() == APP_PASSWORD:
             session.permanent = True
             session["authenticated"] = True
             session.pop("sid", None)
@@ -173,7 +177,7 @@ def status():
     return jsonify({
         "version": APP_VERSION,
         "models": {
-            "rembg": "loaded",
+            "rembg": "loaded" if bg_remover.loaded_models() else "lazy",
             "upscaler": "loaded" if upscaler.is_ready() else ("loading" if upscaler.is_loading() else "lazy")
         },
         "disk": {
@@ -228,7 +232,7 @@ def bg_process(file_id):
         return jsonify({"error": "File tidak ditemukan."}), 404
 
     data = request.json if request.is_json else {}
-    model_name = data.get("model", "birefnet-general")
+    model_name = data.get("model", bg_remover.DEFAULT_MODEL)
     bg_color = data.get("bg_color")  # None = transparan, hex = warna solid
     out_name = in_path.stem + "_nobg.png"
     out_path = work / "output" / out_name

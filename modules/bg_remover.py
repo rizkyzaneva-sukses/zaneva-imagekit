@@ -1,26 +1,35 @@
 import os
 import uuid
+import threading
 import numpy as np
 import cv2
 from pathlib import Path
 from PIL import Image
 from rembg import remove, new_session
 
-ALLOWED_MODELS = ["birefnet-general", "birefnet-portrait", "isnet-general-use"]
-DEFAULT_MODEL = "birefnet-general"
+ALLOWED_MODELS = ["isnet-general-use", "birefnet-general", "birefnet-portrait"]
+# isnet jauh lebih ringan (~170MB vs ~930MB) dan cepat di CPU;
+# birefnet tetap tersedia di dropdown untuk hasil maksimal.
+DEFAULT_MODEL = "isnet-general-use"
 
 # Cache sessions per model
 _sessions = {}
+_lock = threading.Lock()
 
 
 def get_session(model_name: str):
     if model_name not in ALLOWED_MODELS:
         model_name = DEFAULT_MODEL
-    if model_name not in _sessions:
-        print(f"[BG Remover] Loading model: {model_name} ...")
-        _sessions[model_name] = new_session(model_name)
-        print(f"[BG Remover] Model ready: {model_name}")
+    with _lock:
+        if model_name not in _sessions:
+            print(f"[BG Remover] Loading model: {model_name} ...")
+            _sessions[model_name] = new_session(model_name)
+            print(f"[BG Remover] Model ready: {model_name}")
     return _sessions[model_name]
+
+
+def loaded_models() -> list:
+    return list(_sessions.keys())
 
 
 def remove_shadow(result_img: Image.Image) -> Image.Image:
