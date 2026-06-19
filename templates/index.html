@@ -891,14 +891,14 @@
     // ═══════════════════════════════════════
     // TAB 4: RETOUCH
     // ═══════════════════════════════════════
-    const dzR = document.getElementById('dropzone-retouch');
+    const dzRt = document.getElementById('dropzone-retouch');
     const fiRetouch = document.getElementById('fileInputRetouch');
     let retouchFiles = [], retouchOutputs = [];
 
-    dzR.addEventListener('click', () => fiRetouch.click());
-    dzR.addEventListener('dragover', e => { e.preventDefault(); dzR.classList.add('dragover'); });
-    dzR.addEventListener('dragleave', () => dzR.classList.remove('dragover'));
-    dzR.addEventListener('drop', e => { e.preventDefault(); dzR.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadRetouch(e.dataTransfer.files); });
+    dzRt.addEventListener('click', () => fiRetouch.click());
+    dzRt.addEventListener('dragover', e => { e.preventDefault(); dzRt.classList.add('dragover'); });
+    dzRt.addEventListener('dragleave', () => dzRt.classList.remove('dragover'));
+    dzRt.addEventListener('drop', e => { e.preventDefault(); dzRt.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadRetouch(e.dataTransfer.files); });
     fiRetouch.addEventListener('change', e => { if (e.target.files.length) uploadRetouch(e.target.files); });
 
     async function uploadRetouch(fileList) {
