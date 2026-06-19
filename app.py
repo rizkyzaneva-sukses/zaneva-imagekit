@@ -51,7 +51,7 @@ APP_VERSION = "1.0.0"
 TMP_BASE.mkdir(parents=True, exist_ok=True)
 
 # ─── Import modules ───
-from modules import bg_remover, upscaler, resizer
+from modules import bg_remover, upscaler, resizer, retoucher
 
 # Semua model lazy-load: BG remover dimuat saat pertama dipakai (~beberapa
 # detik untuk isnet), upscaler saat tab Upscale dibuka. Startup jadi instan.
@@ -199,7 +199,7 @@ def transfer():
     to_tab = data.get("to_tab")
     output_id = data.get("output_id")
     original = data.get("original") or output_id
-    valid = {"bg", "upscale", "resize"}
+    valid = {"bg", "upscale", "resize", "retouch"}
     if from_tab not in valid or to_tab not in valid or from_tab == to_tab:
         return jsonify({"error": "Tab tidak valid."}), 400
     if not output_id:
@@ -531,6 +531,113 @@ def resize_delete_output(output_id):
         p.unlink()
         return jsonify({"status": "ok"})
     return jsonify({"error": "File tidak ditemukan."}), 404
+
+
+# ══════════════════════════════════════════════
+# TAB 4 — Photo Retouch
+# ══════════════════════════════════════════════
+
+@app.route("/retouch/upload", methods=["POST"])
+@login_required
+def retouch_upload():
+    return handle_upload("retouch")
+
+
+@app.route("/retouch/process/<file_id>", methods=["POST"])
+@login_required
+def retouch_process(file_id):
+    work = get_work_dir("retouch")
+    in_path = work / "input" / file_id
+    if not in_path.exists():
+        return jsonify({"error": "File tidak ditemukan."}), 404
+
+    data = request.json if request.is_json else {}
+    do_upscale = data.get("upscale", True)
+    scale = int(data.get("scale", 2))
+    if scale not in (2, 4):
+        scale = 2
+
+    out_dir = work / "output"
+    result = retoucher.process_image(in_path, out_dir, do_upscale, scale)
+    return jsonify(result), 200 if result["status"] == "ok" else 500
+
+
+@app.route("/retouch/preview-input/<file_id>")
+@login_required
+def retouch_preview_input(file_id):
+    p = get_work_dir("retouch") / "input" / file_id
+    if not p.exists():
+        abort(404)
+    return send_file(p)
+
+
+@app.route("/retouch/preview/<output_id>")
+@login_required
+def retouch_preview(output_id):
+    p = get_work_dir("retouch") / "output" / output_id
+    if not p.exists():
+        abort(404)
+    return send_file(p, mimetype="image/png")
+
+
+@app.route("/retouch/download/<output_id>")
+@login_required
+def retouch_download(output_id):
+    p = get_work_dir("retouch") / "output" / output_id
+    if not p.exists():
+        abort(404)
+    return send_file(p, as_attachment=True, download_name=output_id)
+
+
+@app.route("/retouch/download-all", methods=["POST"])
+@login_required
+def retouch_download_all():
+    work = get_work_dir("retouch")
+    ids = request.json.get("output_ids", [])
+    if not ids:
+        return jsonify({"error": "Tidak ada file."}), 400
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for oid in ids:
+            p = work / "output" / oid
+            if p.exists():
+                zf.write(p, arcname=oid)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name="zaneva_retouched.zip",
+                     mimetype="application/zip")
+
+
+@app.route("/retouch/clear", methods=["POST"])
+@login_required
+def retouch_clear():
+    work = get_work_dir("retouch")
+    count = 0
+    for folder in ["input", "output"]:
+        for p in (work / folder).iterdir():
+            p.unlink(missing_ok=True)
+            count += 1
+    return jsonify({"status": "ok", "deleted_count": count})
+
+
+@app.route("/retouch/delete-output/<output_id>", methods=["POST"])
+@login_required
+def retouch_delete_output(output_id):
+    p = get_work_dir("retouch") / "output" / output_id
+    if p.exists():
+        p.unlink()
+        return jsonify({"status": "ok"})
+    return jsonify({"error": "File tidak ditemukan."}), 404
+
+
+@app.route("/retouch/status", methods=["GET"])
+@login_required
+def retouch_status():
+    """Check if upscaler is available for retouch pipeline."""
+    has_upscaler = upscaler.is_ready()
+    return jsonify({
+        "upscaler_ready": has_upscaler,
+        "upscaler_provider": upscaler.get_provider() if has_upscaler else "none",
+    })
 
 
 # ─── Entry point ───

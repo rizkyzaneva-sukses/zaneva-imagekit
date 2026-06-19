@@ -31,6 +31,7 @@
         .tab.active[data-tab="bg"] { color: var(--accent-purple); border-color: var(--accent-purple); }
         .tab.active[data-tab="upscale"] { color: var(--accent-blue); border-color: var(--accent-blue); }
         .tab.active[data-tab="resize"] { color: var(--accent-green); border-color: var(--accent-green); }
+        .tab.active[data-tab="retouch"] { color: #F59E0B; border-color: #F59E0B; }
 
         /* Layout */
         .main { display: flex; height: calc(100vh - 110px); }
@@ -166,6 +167,7 @@
         <div class="tab active" data-tab="bg">🎨 Remove BG</div>
         <div class="tab" data-tab="upscale">🔍 Upscale</div>
         <div class="tab" data-tab="resize">📐 Resize & Compress</div>
+        <div class="tab" data-tab="retouch">✨ Retouch</div>
     </div>
 
     <!-- Main layout -->
@@ -220,6 +222,23 @@
                     <input type="range" id="quality" min="60" max="100" value="85">
                     <span class="range-val" id="qualityVal">85%</span>
                 </div>
+            </div>
+            <!-- Retouch settings -->
+            <div class="sidebar-section" id="settings-retouch" style="display:none">
+                <h3>✨ Retouch Settings</h3>
+                <label>Teknik</label>
+                <p style="font-size:12px; color:var(--muted); margin-top:4px;">
+                    Frequency Separation — kulit mulus, tekstur natural tetap terjaga.
+                </p>
+                <label style="margin-top:16px">Upscale Setelah Retouch</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="retouchUpscale" value="none" checked> Tanpa Upscale</label>
+                    <label><input type="radio" name="retouchUpscale" value="2"> 2x</label>
+                    <label><input type="radio" name="retouchUpscale" value="4"> 4x</label>
+                </div>
+                <p id="retouchUpscaleNote" style="font-size:11px; color:#475569; margin-top:6px;">
+                    ℹ️ Upscale menggunakan RealESRGAN (auto GPU/CPU).
+                </p>
             </div>
         </div>
 
@@ -290,6 +309,30 @@
                     <button class="btn btn-outline" onclick="resetAllResize()">🔄 Upload Lagi</button>
                 </div>
                 <div class="empty" id="emptyStateResize">Belum ada file yang diproses.</div>
+            </div>
+
+            <!-- Retouch Panel -->
+            <div class="panel" id="panel-retouch">
+                <div class="dropzone" id="dropzone-retouch">
+                    <div class="icon">✨</div>
+                    <p>Drag & drop foto untuk retouch, atau <span>pilih file</span></p>
+                    <p class="hint">JPG, PNG, WEBP, HEIC — Max {{ max_files }} file, {{ max_mb }}MB per file</p>
+                </div>
+                <input type="file" id="fileInputRetouch" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.heif">
+                <div class="stats" id="statsRetouch" style="display:none">
+                    <div class="stat">📁 Total: <strong id="totalCountRetouch">0</strong></div>
+                    <div class="stat">✅ Selesai: <strong id="doneCountRetouch">0</strong></div>
+                    <div class="stat">⏳ Pending: <strong id="pendingCountRetouch">0</strong></div>
+                    <div class="stat">👤 Faces: <strong id="faceCountRetouch">0</strong></div>
+                </div>
+                <div class="file-grid" id="fileGridRetouch"></div>
+                <div class="batch-actions" id="batchActionsRetouch" style="display:none">
+                    <span class="count" id="batchCountRetouch">0 file siap didownload</span>
+                    <button class="btn btn-success" onclick="downloadAllRetouch()">⬇ Download Semua (ZIP)</button>
+                    <button class="btn btn-danger" onclick="clearAllRetouch()">🗑 Hapus Semua</button>
+                    <button class="btn btn-outline" onclick="resetAllRetouch()">🔄 Upload Lagi</button>
+                </div>
+                <div class="empty" id="emptyStateRetouch">Upload foto untuk retouch kulit natural.</div>
             </div>
         </div>
     </div>
@@ -779,7 +822,7 @@
     // ═══════════════════════════════════════
     // SHARED: PIPELINE (kirim hasil ke tab lain)
     // ═══════════════════════════════════════
-    const TAB_LABEL = { bg: 'Remove BG', upscale: 'Upscale', resize: 'Resize' };
+    const TAB_LABEL = { bg: 'Remove BG', upscale: 'Upscale', resize: 'Resize', retouch: 'Retouch' };
 
     async function sendTo(fromTab, outputId, original, toTab) {
         showLoading('Mengirim ke ' + TAB_LABEL[toTab] + '...');
@@ -839,6 +882,121 @@
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
             a.download = filename; a.click(); URL.revokeObjectURL(a.href);
         } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    // ═══════════════════════════════════════
+    // TAB 4: RETOUCH
+    // ═══════════════════════════════════════
+    const dzR = document.getElementById('dropzone-retouch');
+    const fiRetouch = document.getElementById('fileInputRetouch');
+    let retouchFiles = [], retouchOutputs = [];
+
+    dzR.addEventListener('click', () => fiRetouch.click());
+    dzR.addEventListener('dragover', e => { e.preventDefault(); dzR.classList.add('dragover'); });
+    dzR.addEventListener('dragleave', () => dzR.classList.remove('dragover'));
+    dzR.addEventListener('drop', e => { e.preventDefault(); dzR.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadRetouch(e.dataTransfer.files); });
+    fiRetouch.addEventListener('change', e => { if (e.target.files.length) uploadRetouch(e.target.files); });
+
+    async function uploadRetouch(fileList) {
+        showLoading('Mengupload file...');
+        const fd = new FormData();
+        for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
+        try {
+            const res = await fetch('/retouch/upload', { method: 'POST', body: fd });
+            if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 100)); }
+            if (data.error) throw new Error(data.error);
+            for (const f of data.accepted) retouchFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null, faces: 0 });
+            if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
+            renderRetouch(); processAllRetouch();
+        } catch (err) { showToast(err.message, 'error'); }
+        hideLoading();
+    }
+
+    async function processAllRetouch() {
+        showLoading('Retouch foto...');
+        const pending = retouchFiles.filter(f => f.status === 'pending');
+        let done = 0;
+        for (const f of pending) {
+            try {
+                const upscaleMode = document.querySelector('input[name="retouchUpscale"]:checked').value;
+                const doUpscale = upscaleMode !== 'none';
+                const scale = parseInt(upscaleMode) || 2;
+                const res = await fetch('/retouch/process/' + f.id, {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ upscale: doUpscale, scale })
+                });
+                if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { throw new Error('Server error: ' + text.substring(0, 80)); }
+                if (data.status === 'ok') {
+                    f.status = 'done'; f.outputId = data.output_id;
+                    f.faces = data.faces_retouched || 0;
+                    f.origRes = data.orig_res; f.newRes = data.new_res;
+                    f.upscaled = data.upscaled;
+                    retouchOutputs.push(data.output_id);
+                } else { f.status = 'error'; f.error = data.error; }
+            } catch (err) { f.status = 'error'; f.error = err.message; }
+            done++; showProgress(done / pending.length * 100); renderRetouchStats(); renderRetouch();
+        }
+        hideLoading(); hideProgress();
+        if (retouchOutputs.length) document.getElementById('batchActionsRetouch').style.display = 'flex';
+        document.getElementById('batchCountRetouch').textContent = retouchOutputs.length + ' file siap didownload';
+    }
+
+    function renderRetouch() {
+        const grid = document.getElementById('fileGridRetouch');
+        const empty = document.getElementById('emptyStateRetouch');
+        if (!retouchFiles.length) { grid.innerHTML = ''; empty.style.display = 'block'; return;
+        }
+        empty.style.display = 'none'; grid.innerHTML = '';
+        retouchFiles.forEach((f, i) => {
+            const card = document.createElement('div'); card.className = 'file-card';
+            const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
+            const st = f.status === 'done' ? `✅ ${f.faces} wajah, ${f.newRes}` : f.status === 'error' ? '❌ ' + (f.error||'Error') : '⏳ Retouching...';
+            const src = f.status === 'done' && f.outputId ? '/retouch/preview/' + f.outputId : '/retouch/preview-input/' + f.id;
+            card.innerHTML = `<button class="btn-del" onclick="deleteRetouch(${i})">×</button>
+                <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
+                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
+                ${f.status === 'done' && f.outputId ? `<div class="actions">
+                    <button class="btn btn-primary" onclick="window.open('/retouch/preview/${f.outputId}','_blank')">👁</button>
+                    <button class="btn btn-success" onclick="location.href='/retouch/download/${f.outputId}'">⬇</button>
+                    <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
+                    <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
+                </div>` : ''}`;
+            grid.appendChild(card);
+        });
+    }
+
+    function renderRetouchStats() {
+        document.getElementById('statsRetouch').style.display = 'flex';
+        document.getElementById('totalCountRetouch').textContent = retouchFiles.length;
+        document.getElementById('doneCountRetouch').textContent = retouchFiles.filter(f => f.status === 'done').length;
+        document.getElementById('pendingCountRetouch').textContent = retouchFiles.filter(f => f.status === 'pending').length;
+        document.getElementById('faceCountRetouch').textContent = retouchFiles.reduce((s, f) => s + (f.faces || 0), 0);
+    }
+
+    async function deleteRetouch(i) {
+        const f = retouchFiles[i];
+        if (f.outputId) retouchOutputs = retouchOutputs.filter(o => o !== f.outputId);
+        retouchFiles.splice(i, 1); renderRetouch(); renderRetouchStats();
+    }
+    async function downloadAllRetouch() { await fetchZip('/retouch/download-all', retouchOutputs, 'zaneva_retouched.zip'); }
+    async function clearAllRetouch() {
+        if (!confirm('Hapus semua file?')) return;
+        await fetch('/retouch/clear', { method: 'POST' });
+        retouchFiles = []; retouchOutputs = []; renderRetouch(); renderRetouchStats();
+        document.getElementById('batchActionsRetouch').style.display = 'none';
+        showToast('Semua file dihapus', 'success');
+    }
+    function resetAllRetouch() {
+        fetch('/retouch/clear', { method: 'POST' });
+        retouchFiles = []; retouchOutputs = []; renderRetouch(); renderRetouchStats();
+        document.getElementById('batchActionsRetouch').style.display = 'none';
+        document.getElementById('statsRetouch').style.display = 'none'; fiRetouch.value = '';
     }
     </script>
 </body>
