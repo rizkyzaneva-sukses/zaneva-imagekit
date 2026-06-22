@@ -15,9 +15,9 @@ WORKDIR /app
 # cuDNN 9 wajib agar CUDAExecutionProvider di onnxruntime-gpu bisa aktif.
 # Tanpa cuDNN → onnxruntime fallback ke CPU (libcudnn.so.9 not found).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-dev python3.11-venv python3-pip \
-        libgl1 libglib2.0-0 \
-        libcudnn9-cuda-12 \
+    python3.11 python3.11-dev python3.11-venv python3-pip \
+    libgl1 libglib2.0-0 \
+    libcudnn9-cuda-12 \
     && rm -rf /var/lib/apt/lists/* \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python  python  /usr/bin/python3.11 1 \
@@ -33,12 +33,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Build akan gagal jika onnxruntime-gpu tidak bisa detect CUDA libs.
 # Ini mencegah deploy container yang diam-diam fallback ke CPU.
 RUN python -c "\
-import onnxruntime as ort; \
-providers = ort.get_available_providers(); \
-print('Available providers:', providers); \
-assert 'CUDAExecutionProvider' in providers, \
+    import onnxruntime as ort; \
+    providers = ort.get_available_providers(); \
+    print('Available providers:', providers); \
+    assert 'CUDAExecutionProvider' in providers, \
     'GAGAL: CUDAExecutionProvider tidak tersedia! Cek instalasi CUDA/cuDNN.'; \
-print('OK: CUDAExecutionProvider tersedia')"
+    print('OK: CUDAExecutionProvider tersedia')"
 
 # ── Step 4: Pre-download BG remover models (cached layer) ──
 # isnet (~170MB, default) + birefnet (~930MB, opsi "Best" di dropdown).
@@ -50,6 +50,7 @@ COPY . .
 
 EXPOSE ${PORT:-5000}
 
-# gthread: 1 worker + 2 threads → proses upscale tidak blokir status-polling.
+# gthread: 1 worker + 8 threads → banyak device bisa masuk antrian bersamaan.
+# GPU inference tetap serial via _gpu_sem di upscaler.py — VRAM aman.
 # Timeout 600s → x4plus gambar besar butuh waktu lebih lama.
-CMD sh -c 'gunicorn -w 1 --worker-class gthread --threads 2 -b 0.0.0.0:${PORT:-5000} --timeout 600 --graceful-timeout 30 app:app'
+CMD sh -c 'gunicorn -w 1 --worker-class gthread --threads 8 -b 0.0.0.0:${PORT:-5000} --timeout 600 --graceful-timeout 30 app:app'

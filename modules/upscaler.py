@@ -15,7 +15,8 @@ from PIL import Image
 
 _lock = threading.Lock()
 _gpu_sem = threading.Semaphore(1)   # hanya 1 inference GPU sekaligus → cegah OOM cublas
-_sessions = {}       # model_name -> onnxruntime.InferenceSession
+_sessions = {}       # model_name -> onnxruntime.InferenceSession (GPU/best)
+_cpu_sessions = {}   # model_name -> onnxruntime.InferenceSession (CPU fallback)
 _loading = False
 _loaded = False
 _active_provider = "CPUExecutionProvider"  # akan di-update saat init
@@ -25,9 +26,10 @@ ALLOWED_MODELS = ["RealESRGAN_x4plus", "RealESRGAN_x2plus"]
 MODEL_SCALES = {"RealESRGAN_x4plus": 4, "RealESRGAN_x2plus": 2}
 DEFAULT_MODEL = "RealESRGAN_x4plus"
 
-# Tile lebih kecil (128) agar hemat VRAM — x4plus output 512×512/tile
-# vs 1024×1024/tile pada TILE=256. Bebas seam karena TILE_PAD tetap dipakai.
-TILE = 128
+# TILE=64: actual input ke model = 84×84px (64+2×10).
+# Intermediate feature map ~64ch × 84×84 × float32 ≈ 1.7 MB/layer — aman di VRAM kecil.
+# (TILE=128 → ~7 MB/layer → OOM pada GPU <4 GB)
+TILE = 64
 TILE_PAD = 10  # genap, agar dimensi tile tetap genap (syarat model x2)
 
 
@@ -67,7 +69,8 @@ def _detect_active_provider(providers: list) -> str:
 
 
 def _load_model(model_name: str, providers: list):
-    """Internal: load a single ONNX model dengan providers yang ditentukan."""
+    """Internal: load a single ONNX model dengan providers yang ditentukan.
+    Selalu load CPU session terpisah sebagai fallback OOM."""
     import onnxruntime as ort
 
     onnx_path = MODEL_DIR / f"{model_name}.onnx"
@@ -78,8 +81,6 @@ def _load_model(model_name: str, providers: list):
         )
     opts = ort.SessionOptions()
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    # Batasi CUDA arena agar tidak borosi VRAM saat model pertama kali load
-    opts.add_session_config_entry("session.disable_aot_function_inlining", "1")
 
     try:
         sess = ort.InferenceSession(str(onnx_path), sess_options=opts, providers=providers)
@@ -93,6 +94,19 @@ def _load_model(model_name: str, providers: list):
 
     _sessions[model_name] = sess
     print(f"[Upscaler] Model loaded: {model_name} | provider: {sess.get_providers()[0]}")
+
+    # Load CPU fallback session (ringan, untuk OOM recovery)
+    if sess.get_providers()[0] != "CPUExecutionProvider":
+        cpu_opts = ort.SessionOptions()
+        cpu_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        cpu_sess = ort.InferenceSession(
+            str(onnx_path), sess_options=cpu_opts,
+            providers=["CPUExecutionProvider"]
+        )
+        _cpu_sessions[model_name] = cpu_sess
+        print(f"[Upscaler] CPU fallback loaded: {model_name}")
+    else:
+        _cpu_sessions[model_name] = sess  # sudah CPU, pakai yang sama
 
 
 def init() -> dict:
@@ -215,7 +229,20 @@ def process_image(in_path: Path, out_dir: Path,
         arr = arr.transpose(2, 0, 1)  # HWC -> CHW
 
         model_scale = MODEL_SCALES[model_name]
-        out = _enhance(_sessions[model_name], arr, model_scale)
+        try:
+            out = _enhance(_sessions[model_name], arr, model_scale)
+        except Exception as gpu_err:
+            err_str = str(gpu_err)
+            # OOM / cublas / cudnn error → retry via CPU
+            is_oom = any(k in err_str for k in (
+                "AllocateRaw", "Failed to allocate", "CUBLAS failure",
+                "CUDNN_STATUS", "cublasCreate", "cudnnCreate", "out of memory"
+            ))
+            if is_oom and model_name in _cpu_sessions:
+                print(f"[Upscaler] ⚠️ GPU OOM, retry CPU: {gpu_err}")
+                out = _enhance(_cpu_sessions[model_name], arr, model_scale)
+            else:
+                raise
 
         out = (np.clip(out, 0, 1).transpose(1, 2, 0) * 255.0).round().astype(np.uint8)
         output_pil = Image.fromarray(out)
