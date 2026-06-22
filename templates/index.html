@@ -244,6 +244,14 @@
                     ℹ️ Upscale menggunakan RealESRGAN (auto GPU/CPU).
                 </p>
             </div>
+            <!-- Download options (sempre visible) -->
+            <div class="sidebar-section" id="dl-options-global" style="border-top:1px solid var(--border);margin-top:8px;padding-top:12px;">
+                <h3>⬇ Download</h3>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+                    <input type="checkbox" id="keepOrigNameToggle" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                    Pakai nama file asli
+                </label>
+            </div>
         </div>
 
         <!-- Content panels -->
@@ -397,6 +405,21 @@
     // TOAST / LOADING
     // ═══════════════════════════════════════
     function esc(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+    let _keepOrigName = false;
+    document.getElementById('keepOrigNameToggle').addEventListener('change', function() { _keepOrigName = this.checked; });
+    function dlUrl(tab, outputId, original) {
+        if (!_keepOrigName) return '/' + tab + '/download/' + outputId;
+        const oExt = outputId.includes('.') ? outputId.slice(outputId.lastIndexOf('.')) : '';
+        const oStem = original.includes('.') ? original.slice(0, original.lastIndexOf('.')) : original;
+        return '/' + tab + '/download/' + outputId + '?name=' + encodeURIComponent(oStem + oExt);
+    }
+    function dlUrlResize(outputId, original, label) {
+        if (!_keepOrigName) return '/resize/download/' + outputId;
+        const oExt = outputId.includes('.') ? outputId.slice(outputId.lastIndexOf('.')) : '';
+        const oStem = original.includes('.') ? original.slice(0, original.lastIndexOf('.')) : original;
+        const safeLbl = label.replace(/[^a-zA-Z0-9]/g, '_');
+        return '/resize/download/' + outputId + '?name=' + encodeURIComponent(oStem + '_' + safeLbl + oExt);
+    }
     function showToast(msg, type = '') {
         const t = document.getElementById('toast');
         t.textContent = msg; t.className = 'toast show ' + type;
@@ -492,7 +515,7 @@
                 <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/bg/preview/${f.outputId}','_blank')">👁</button>
-                    <button class="btn btn-success" onclick="location.href='/bg/download/${f.outputId}'">⬇</button>
+                    <button class="btn btn-success" onclick="location.href=dlUrl('bg','${f.outputId}','${esc(f.original)}')">⬇</button>
                     <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
                     <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
                 </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryBg(${i})">🔄 Retry</button></div>` : ''}`;
@@ -703,7 +726,7 @@
                 <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div>${swHtml}</div>
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/upscale/preview/${f.outputId}','_blank')">👁</button>
-                    <button class="btn btn-success" onclick="location.href='/upscale/download/${f.outputId}'">⬇</button>
+                    <button class="btn btn-success" onclick="location.href=dlUrl('upscale','${f.outputId}','${esc(f.original)}')">⬇</button>
                     <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','bg')">��� Remove BG</button>
                     <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
                 </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryUpscale(${i})">🔄 Retry</button></div>` : ''}`;
@@ -802,7 +825,7 @@
                 actionsHtml = '<div class="actions">';
                 for (const o of f.outputs) {
                     actionsHtml += `<button class="btn btn-primary" onclick="window.open('/resize/preview/${o.output_id}','_blank')" title="${o.label}">${o.label}</button>` +
-                                   `<button class="btn btn-success" onclick="location.href='/resize/download/${o.output_id}'" title="Download ${o.label}">⬇</button>`;
+                                   `<button class="btn btn-success" onclick="location.href=dlUrlResize('${o.output_id}','${esc(f.original)}','${esc(o.label)}')" title="Download ${o.label}">⬇</button>`;
                 }
                 actionsHtml += '</div>';
             } else if (f.status === 'error') {
@@ -982,7 +1005,7 @@
                 <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/retouch/preview/${f.outputId}','_blank')">👁</button>
-                    <button class="btn btn-success" onclick="location.href='/retouch/download/${f.outputId}'">⬇</button>
+                    <button class="btn btn-success" onclick="location.href=dlUrl('retouch','${f.outputId}','${esc(f.original)}')">⬇</button>
                     <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
                     <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
                 </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryRetouch(${i})">🔄 Retry</button></div>` : ''}`;

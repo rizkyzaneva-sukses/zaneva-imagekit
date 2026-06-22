@@ -41,8 +41,25 @@ def _get_best_providers() -> list:
     TRT melakukan JIT-compile model saat pertama run — bisa timeout / crash
     untuk model kompleks seperti x4plus (23 RRDB blocks).
     CUDAExecutionProvider sudah GPU-accelerated tanpa overhead TRT.
+
+    Jika env FORCE_CPU=1 diset, atau terdeteksi RDP session (tanpa GPU fisik),
+    langsung pakai CPU untuk menghindari CUBLAS failure.
     """
-    import onnxruntime as ort
+    import os, onnxruntime as ort
+
+    # Override manual lewat env var
+    if os.environ.get("FORCE_CPU", "0") == "1":
+        print("[Upscaler] ⚪ FORCE_CPU=1 → CPU only")
+        return ["CPUExecutionProvider"]
+
+    # RDP session: Microsoft Remote Display Adapter = tidak ada GPU fisik di session
+    # SESSIONNAME env ada di Windows RDP session (RDP-Tcp#N), tidak ada di console
+    session_name = os.environ.get("SESSIONNAME", "")
+    is_rdp = session_name.startswith("RDP-") or session_name.lower().startswith("rdp")
+    if is_rdp:
+        print(f"[Upscaler] ⚪ RDP session ({session_name!r}) → CPU only (hindari CUBLAS OOM)")
+        return ["CPUExecutionProvider"]
+
     available = ort.get_available_providers()
     # Buang TRT dan OpenVINO agar tidak dipilih secara otomatis
     safe = [p for p in available if p not in (

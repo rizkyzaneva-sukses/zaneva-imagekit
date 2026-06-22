@@ -266,7 +266,8 @@ def bg_download(output_id):
     p = get_work_dir("bg") / "output" / output_id
     if not p.exists():
         abort(404)
-    return send_file(p, as_attachment=True, download_name=output_id)
+    dl_name = request.args.get("name", output_id)
+    return send_file(p, as_attachment=True, download_name=dl_name)
 
 
 @app.route("/bg/download-all", methods=["POST"])
@@ -394,7 +395,8 @@ def upscale_download(output_id):
     p = get_work_dir("upscale") / "output" / output_id
     if not p.exists():
         abort(404)
-    return send_file(p, as_attachment=True, download_name=output_id)
+    dl_name = request.args.get("name", output_id)
+    return send_file(p, as_attachment=True, download_name=dl_name)
 
 
 @app.route("/upscale/download-all", methods=["POST"])
@@ -494,7 +496,8 @@ def resize_download(output_id):
     p = get_work_dir("resize") / "output" / output_id
     if not p.exists():
         abort(404)
-    return send_file(p, as_attachment=True, download_name=output_id)
+    dl_name = request.args.get("name", output_id)
+    return send_file(p, as_attachment=True, download_name=dl_name)
 
 
 @app.route("/resize/download-all", methods=["POST"])
@@ -586,7 +589,8 @@ def retouch_download(output_id):
     p = get_work_dir("retouch") / "output" / output_id
     if not p.exists():
         abort(404)
-    return send_file(p, as_attachment=True, download_name=output_id)
+    dl_name = request.args.get("name", output_id)
+    return send_file(p, as_attachment=True, download_name=dl_name)
 
 
 @app.route("/retouch/download-all", methods=["POST"])
