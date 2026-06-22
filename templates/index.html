@@ -495,7 +495,7 @@
                     <button class="btn btn-success" onclick="location.href='/bg/download/${f.outputId}'">⬇</button>
                     <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
                     <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
-                </div>` : ''}`;
+                </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryBg(${i})">🔄 Retry</button></div>` : ''}`;
             grid.appendChild(card);
         });
     }
@@ -511,6 +511,10 @@
         const f = bgFiles[i];
         if (f.outputId) bgOutputs = bgOutputs.filter(o => o !== f.outputId);
         bgFiles.splice(i, 1); renderBg(); renderBgStats();
+    }
+    function retryBg(i) {
+        const f = bgFiles[i]; f.status = 'pending'; f.error = null;
+        renderBg(); renderBgStats(); processAllBg();
     }
     async function downloadAll() { await fetchZip('/bg/download-all', bgOutputs, 'zaneva_nobg.zip'); }
     async function clearAll() {
@@ -700,9 +704,9 @@
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/upscale/preview/${f.outputId}','_blank')">👁</button>
                     <button class="btn btn-success" onclick="location.href='/upscale/download/${f.outputId}'">⬇</button>
-                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','bg')">→ Remove BG</button>
+                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','bg')">��� Remove BG</button>
                     <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
-                </div>` : ''}`;
+                </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryUpscale(${i})">🔄 Retry</button></div>` : ''}`;
             grid.appendChild(card);
         });
     }
@@ -711,6 +715,10 @@
         const f = upscaleFiles[i];
         if (f.outputId) upscaleOutputs = upscaleOutputs.filter(o => o !== f.outputId);
         upscaleFiles.splice(i, 1); renderUpscale();
+    }
+    function retryUpscale(i) {
+        const f = upscaleFiles[i]; f.status = 'pending'; f.error = null; f.elapsed = null; f._liveMs = 0;
+        renderUpscale(); processAllUpscale();
     }
     async function downloadAllUpscale() { await fetchZip('/upscale/download-all', upscaleOutputs, 'zaneva_upscaled.zip'); }
     async function clearAllUpscale() {
@@ -793,9 +801,12 @@
             if (f.status === 'done') {
                 actionsHtml = '<div class="actions">';
                 for (const o of f.outputs) {
-                    actionsHtml += `<button class="btn btn-primary" onclick="window.open('/resize/preview/${o.output_id}','_blank')">${o.label}</button>`;
+                    actionsHtml += `<button class="btn btn-primary" onclick="window.open('/resize/preview/${o.output_id}','_blank')" title="${o.label}">${o.label}</button>` +
+                                   `<button class="btn btn-success" onclick="location.href='/resize/download/${o.output_id}'" title="Download ${o.label}">⬇</button>`;
                 }
                 actionsHtml += '</div>';
+            } else if (f.status === 'error') {
+                actionsHtml = `<div class="actions"><button class="btn btn-danger" onclick="retryResize(${i})">🔄 Retry</button></div>`;
             }
             card.innerHTML = `<button class="btn-del" onclick="deleteResize(${i})">×</button>
                 <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
@@ -809,6 +820,10 @@
         const f = resizeFiles[i];
         for (const o of f.outputs) resizeOutputs = resizeOutputs.filter(x => x !== o.output_id);
         resizeFiles.splice(i, 1); renderResize();
+    }
+    function retryResize(i) {
+        const f = resizeFiles[i]; f.status = 'pending'; f.error = null; f.outputs = [];
+        renderResize(); processAllResize();
     }
     async function downloadAllResize() { await fetchZip('/resize/download-all', resizeOutputs, 'zaneva_resized.zip'); }
     async function clearAllResize() {
@@ -970,7 +985,7 @@
                     <button class="btn btn-success" onclick="location.href='/retouch/download/${f.outputId}'">⬇</button>
                     <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
                     <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
-                </div>` : ''}`;
+                </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryRetouch(${i})">🔄 Retry</button></div>` : ''}`;
             grid.appendChild(card);
         });
     }
@@ -987,6 +1002,10 @@
         const f = retouchFiles[i];
         if (f.outputId) retouchOutputs = retouchOutputs.filter(o => o !== f.outputId);
         retouchFiles.splice(i, 1); renderRetouch(); renderRetouchStats();
+    }
+    function retryRetouch(i) {
+        const f = retouchFiles[i]; f.status = 'pending'; f.error = null;
+        renderRetouch(); renderRetouchStats(); processAllRetouch();
     }
     async function downloadAllRetouch() { await fetchZip('/retouch/download-all', retouchOutputs, 'zaneva_retouched.zip'); }
     async function clearAllRetouch() {
