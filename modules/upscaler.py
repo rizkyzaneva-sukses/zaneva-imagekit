@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image
 
 _lock = threading.Lock()
+_gpu_sem = threading.Semaphore(1)   # hanya 1 inference GPU sekaligus → cegah OOM cublas
 _sessions = {}       # model_name -> onnxruntime.InferenceSession
 _loading = False
 _loaded = False
@@ -77,6 +78,8 @@ def _load_model(model_name: str, providers: list):
         )
     opts = ort.SessionOptions()
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    # Batasi CUDA arena agar tidak borosi VRAM saat model pertama kali load
+    opts.add_session_config_entry("session.disable_aot_function_inlining", "1")
 
     try:
         sess = ort.InferenceSession(str(onnx_path), sess_options=opts, providers=providers)
@@ -199,6 +202,11 @@ def process_image(in_path: Path, out_dir: Path,
     if model_name not in _sessions:
         return {"status": "error", "error": f"Model {model_name} tidak tersedia."}
 
+    # Serialisasi GPU inference — cegah cublasCreate VRAM OOM saat batch
+    acquired = _gpu_sem.acquire(timeout=300)  # tunggu max 5 menit
+    if not acquired:
+        return {"status": "error", "error": "GPU sedang sibuk terlalu lama, coba lagi."}
+
     try:
         img_pil = Image.open(in_path).convert("RGB")
         orig_w, orig_h = img_pil.size
@@ -226,6 +234,7 @@ def process_image(in_path: Path, out_dir: Path,
             pass  # input masih dipakai (preview di Windows); dibersihkan auto-cleanup
 
         _clear_gpu_cache()  # bebaskan VRAM setelah setiap gambar
+        _gpu_sem.release()
 
         return {
             "status": "ok",
@@ -235,4 +244,5 @@ def process_image(in_path: Path, out_dir: Path,
             "provider": _active_provider,
         }
     except Exception as e:
+        _gpu_sem.release()
         return {"status": "error", "error": str(e)}
