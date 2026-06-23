@@ -88,7 +88,7 @@ def _detect_active_provider(providers: list) -> str:
 def _load_model(model_name: str, providers: list):
     """Internal: load a single ONNX model dengan providers yang ditentukan.
     Selalu load CPU session terpisah sebagai fallback OOM."""
-    import onnxruntime as ort
+    import os, onnxruntime as ort
 
     onnx_path = MODEL_DIR / f"{model_name}.onnx"
     if not onnx_path.exists():
@@ -96,8 +96,18 @@ def _load_model(model_name: str, providers: list):
             f"Model file not found: {onnx_path}. "
             "Jalankan: python download_models.py"
         )
+
+    # Batasi thread CPU agar tidak monopoli semua core server saat inference.
+    # Tanpa batas ini, ONNX Runtime pakai SEMUA core → CPU 100% → server
+    # tidak bisa melayani request lain → "Server error:" setelah beberapa lama.
+    # Default 4 — cukup cepat tapi tetap menyisakan core untuk gunicorn threads.
+    # Override via env var: ORT_NUM_THREADS=8 (sesuai alokasi core di Easypanel).
+    num_threads = int(os.environ.get("ORT_NUM_THREADS", "4"))
+
     opts = ort.SessionOptions()
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    opts.intra_op_num_threads = num_threads  # thread per-operasi (konvolusi, GEMM, dll)
+    opts.inter_op_num_threads = 1            # op dijalankan serial → aman dengan gthread
 
     try:
         sess = ort.InferenceSession(str(onnx_path), sess_options=opts, providers=providers)
@@ -110,12 +120,14 @@ def _load_model(model_name: str, providers: list):
         )
 
     _sessions[model_name] = sess
-    print(f"[Upscaler] Model loaded: {model_name} | provider: {sess.get_providers()[0]}")
+    print(f"[Upscaler] Model loaded: {model_name} | provider: {sess.get_providers()[0]} | threads: {num_threads}")
 
     # Load CPU fallback session (ringan, untuk OOM recovery)
     if sess.get_providers()[0] != "CPUExecutionProvider":
         cpu_opts = ort.SessionOptions()
         cpu_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        cpu_opts.intra_op_num_threads = num_threads  # sama, agar konsisten
+        cpu_opts.inter_op_num_threads = 1
         cpu_sess = ort.InferenceSession(
             str(onnx_path), sess_options=cpu_opts,
             providers=["CPUExecutionProvider"]
@@ -207,21 +219,12 @@ def _enhance(sess, img: np.ndarray, model_scale: int) -> np.ndarray:
 
 
 def _clear_gpu_cache():
-    """Bebaskan VRAM setelah setiap gambar selesai agar tidak OOM pada
-    gambar berikutnya. Aman dipanggil meski tidak ada GPU."""
-    try:
-        import ctypes
-        if "CUDAExecutionProvider" in _active_provider:
-            # ONNX Runtime tidak expose cuMemFree langsung;
-            # panggil via ort internal jika tersedia.
-            pass
-    except Exception:
-        pass
-    try:
-        import gc
-        gc.collect()
-    except Exception:
-        pass
+    """Paksa GC untuk bebaskan RAM setelah setiap gambar.
+    Penting karena array NumPy besar (float32 CHW) perlu segera dibebaskan
+    agar tidak menumpuk di antara request — mencegah OOM setelah beberapa jam.
+    Aman dipanggil meski tidak ada GPU."""
+    import gc
+    gc.collect()
 
 
 def process_image(in_path: Path, out_dir: Path,
@@ -244,10 +247,11 @@ def process_image(in_path: Path, out_dir: Path,
 
         arr = np.asarray(img_pil, dtype=np.float32) / 255.0
         arr = arr.transpose(2, 0, 1)  # HWC -> CHW
+        del img_pil  # bebaskan PIL Image segera setelah array terbentuk
 
         model_scale = MODEL_SCALES[model_name]
         try:
-            out = _enhance(_sessions[model_name], arr, model_scale)
+            raw_out = _enhance(_sessions[model_name], arr, model_scale)
         except Exception as gpu_err:
             err_str = str(gpu_err)
             # OOM / cublas / cudnn error → retry via CPU
@@ -257,12 +261,15 @@ def process_image(in_path: Path, out_dir: Path,
             ))
             if is_oom and model_name in _cpu_sessions:
                 print(f"[Upscaler] ⚠️ GPU OOM, retry CPU: {gpu_err}")
-                out = _enhance(_cpu_sessions[model_name], arr, model_scale)
+                raw_out = _enhance(_cpu_sessions[model_name], arr, model_scale)
             else:
                 raise
+        del arr  # bebaskan float32 CHW input — bisa >50 MB untuk gambar besar
 
-        out = (np.clip(out, 0, 1).transpose(1, 2, 0) * 255.0).round().astype(np.uint8)
-        output_pil = Image.fromarray(out)
+        out_uint8 = (np.clip(raw_out, 0, 1).transpose(1, 2, 0) * 255.0).round().astype(np.uint8)
+        del raw_out  # bebaskan float32 CHW output — bisa >200 MB untuk x4
+        output_pil = Image.fromarray(out_uint8)
+        del out_uint8  # bebaskan uint8 array setelah PIL Image terbentuk
 
         target = (orig_w * scale, orig_h * scale)
         if output_pil.size != target:
@@ -272,12 +279,13 @@ def process_image(in_path: Path, out_dir: Path,
         final_name = f"{in_path.stem}_{scale}x.png"
         final_path = out_dir / final_name
         output_pil.save(final_path, format="PNG")
+        del output_pil  # bebaskan PIL Image setelah tersimpan ke disk
         try:
             in_path.unlink(missing_ok=True)
         except OSError:
             pass  # input masih dipakai (preview di Windows); dibersihkan auto-cleanup
 
-        _clear_gpu_cache()  # bebaskan VRAM setelah setiap gambar
+        _clear_gpu_cache()  # gc.collect() → paksa GC bebaskan sisa memori sekarang
         _gpu_sem.release()
 
         return {

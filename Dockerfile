@@ -9,6 +9,13 @@ FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+# Batasi thread OpenMP/MKL/ONNX agar inference tidak monopoli semua CPU core.
+# Tanpa ini: ONNX Runtime pakai 16 core → CPU 100% → server freezes.
+# Sesuaikan ORT_NUM_THREADS dengan jumlah core yg dialokasikan di Easypanel.
+# Nilai ini juga dibaca oleh _load_model() di modules/upscaler.py.
+ENV OMP_NUM_THREADS=4
+ENV MKL_NUM_THREADS=4
+ENV ORT_NUM_THREADS=4
 WORKDIR /app
 
 # ── Step 1: Install cuDNN 9 + Python 3.11 + system deps ──
