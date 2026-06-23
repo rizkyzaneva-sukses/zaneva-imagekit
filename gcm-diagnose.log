@@ -1,0 +1,279 @@
+﻿Diagnose log at 2026-06-19T09:25:21Z
+
+AppPath: C:\Program Files\Git\mingw64\bin\git-credential-manager.exe
+InstallDir: C:\Program Files\Git\mingw64\bin\
+Version: 2.7.3+5fa7116896c82164996a609accd1c5ad90fe730a
+
+------------
+Diagnostic: Environment
+Skipped: False
+Success: True
+Exception: None
+Log:
+OSType: Windows
+OSVersion: 10.0 (build 26200)
+Reading environment variables... OK
+ Variables:
+TIMEZONE=
+HERMES_MEDIA_DELIVERY_STRICT=0
+CONFIG_SITE=C:/Program Files/Git/etc/config.site
+TERMINAL_HOME_MODE=auto
+OS=Windows_NT
+HERMES_REDACT_SECRETS=true
+SYSTEMROOT=C:\WINDOWS
+HERMES_GIT_BASH_PATH=C:\Program Files\Git\bin\bash.exe
+ORIGINAL_TEMP=C:/Users/alawi/AppData/Local/Temp
+BROWSER_INACTIVITY_TIMEOUT=120
+SHLVL=1
+TERMINAL_CONTAINER_DISK=51200
+INFOPATH=C:\Program Files\Git\mingw64\local\info;C:\Program Files\Git\mingw64\share\info;C:\Program Files\Git\usr\local\info;C:\Program Files\Git\usr\share\info;C:\Program Files\Git\usr\info;C:\Program Files\Git\share\info
+HERMES_SESSION_THREAD_ID=1
+COMMONPROGRAMW6432=C:\Program Files\Common Files
+TERMINAL_DOCKER_IMAGE=nikolaik/python-nodejs:python3.11-nodejs20
+PREFILL_MESSAGES_FILE=
+_CONFIG_VERSION=29
+HERMES_MEDIA_TRUST_RECENT_FILES=1
+DISCORD_HISTORY_BACKFILL=true
+DISPLAY=needs-to-be-defined
+HERMES_SESSION_ID=20260619_075212_907a5776
+MATRIX_ALLOWED_ROOMS=
+HERMES_SESSION_MESSAGE_ID=271
+CUDA_PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3
+USERDOMAIN=ZanevaServer
+TERMINAL_DOCKER_ENV={}
+SYSTEMDRIVE=C:
+MINGW_CHOST=x86_64-w64-mingw32
+PROCESSOR_REVISION=5000
+HERMES_SESSION_CHAT_ID=-1003552491719
+HERMES_AGENT_NOTIFY_INTERVAL=180
+NUMBER_OF_PROCESSORS=16
+DISCORD_THREAD_REQUIRE_MENTION=false
+TERMINAL_CWD=C:\Users\alawi
+PROGRAMW6432=C:\Program Files
+PKG_CONFIG_SYSTEM_LIBRARY_PATH=C:/Program Files/Git/mingw64/lib
+TMPDIR=C:\Users\alawi\AppData\Local\Temp
+TERM=xterm-256color
+TERMINAL_MODAL_IMAGE=nikolaik/python-nodejs:python3.11-nodejs20
+TELEGRAM_HOME_CHANNEL_THREAD_ID=108
+SSL_CERT_FILE=C:\Users\alawi\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages\certifi\cacert.pem
+VIRTUAL_ENV_PROMPT=(.venv) 
+EDITOR=notepad
+COMMONPROGRAMFILES(X86)=C:\Program Files (x86)\Common Files
+GATEWAY_MODE=telegram
+PKG_CONFIG_PATH=C:\Program Files\Git\mingw64\lib\pkgconfig;C:\Program Files\Git\mingw64\share\pkgconfig
+HERMES_SESSION_KEY=agent:main:telegram:group:-1003552491719:1
+DISCORD_REACTIONS=true
+PASTE_COLLAPSE_CHAR_THRESHOLD=2000
+HOOKS_AUTO_ACCEPT=False
+CUDA_PATH_V13_3=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3
+DISCORD_ALLOWED_CHANNELS=
+COMSPEC=C:\WINDOWS\system32\cmd.exe
+TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE=False
+_HERMES_GATEWAY=1
+PASTE_COLLAPSE_THRESHOLD=5
+HERMES_MEDIA_TRUST_RECENT_SECONDS=600
+TELEGRAM_ALLOWED_CHATS=-1003552491719
+PYTHONUTF8=1
+CONTEXT_FILE_MAX_CHARS=20000
+SLACK_ALLOWED_CHANNELS=
+MINGW_PACKAGE_PREFIX=mingw-w64-x86_64
+COMPUTERNAME=ZANEVASERVER
+WINDIR=C:\WINDOWS
+SHELL=C:\Program Files\Git\usr\bin\bash.exe
+_=C:/Program Files/Git/mingw64/bin/git
+LOGONSERVER=\\ZANEVASERVER
+FILE_READ_MAX_CHARS=100000
+HOMEDRIVE=C:
+ORIGINAL_PATH=C:\Program Files\Git\mingw64\bin;C:\Program Files\Git\usr\bin;C:\Users\alawi\bin;C:\Users\alawi\AppData\Local\Microsoft\WinGet\Links;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\x64;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin;C:\Program Files (x86)\Common Files\Oracle\Java\java8path;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0;C:\WINDOWS\System32\OpenSSH;C:\Program Files\Git\cmd;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\nodejs;C:\Program Files\NVIDIA Corporation\Nsight Compute 2026.2.0;C:\Program Files (x86)\cloudflared;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files\Tailscale;C:\Program Files\GitHub CLI;C:\Users\alawi\AppData\Local\hermes\hermes-agent\venv\Scripts;C:\Users\alawi\AppData\Local\hermes\bin;C:\Users\alawi\AppData\Local\Microsoft\WindowsApps;C:\Users\alawi\AppData\Roaming\npm;C:\Users\alawi\AppData\Local\Python\bin;C:\Users\alawi\AppData\Local\Microsoft\WinGet\Packages\BurntSushi.ripgrep.MSVC_Microsoft.Winget.Source_8wekyb3d8bbwe\ripgrep-15.1.0-x86_64-pc-windows-msvc;C:\Users\alawi\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin;C:\Users\alawi\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\alawi\AppData\Local\Programs\Antigravity IDE\bin
+PROGRAMFILES(X86)=C:\Program Files (x86)
+HERMES_SESSION_CHAT_NAME=PC Server
+ACLOCAL_PATH=C:\Program Files\Git\mingw64\share\aclocal;C:\Program Files\Git\usr\share\aclocal
+HOMEPATH=\Users\alawi
+HERMES_REAL_HOME=C:\Users\alawi
+LANG=en_US.UTF-8
+PUBLIC=C:\Users\Public
+COMMONPROGRAMFILES=C:\Program Files\Common Files
+HERMES_RESTART_DRAIN_TIMEOUT=180
+HERMES_HOME=C:\Users\alawi\AppData\Local\hermes
+GIT_TRACE2_PARENT_SID=20b76746-49d7-4a41-aa56-77c9df4b4e63
+PS1=(.venv) (.venv) (.venv) \[\033]0;$TITLEPREFIX:$PWD\007\]\n\[\033[32m\]\u@\h \[\033[35m\]$MSYSTEM \[\033[33m\]\w\[\033[36m\]`__git_ps1`\[\033[0m\]\n$ 
+PYTHONIOENCODING=utf-8
+HERMES_SESSION_USER_NAME=Alawi Zaneva
+TERMINAL_DAYTONA_IMAGE=nikolaik/python-nodejs:python3.11-nodejs20
+SLACK_FREE_RESPONSE_CHANNELS=
+PROMPT=$P$G
+PROCESSOR_IDENTIFIER=AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD
+APPDATA=C:\Users\alawi\AppData\Roaming
+HOSTNAME=ZanevaServer
+TERMINAL_PERSISTENT_SHELL=True
+TMP=C:\Users\alawi\AppData\Local\Temp
+MSYSTEM_CHOST=x86_64-w64-mingw32
+EXEPATH=C:\Program Files\Git\bin
+PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+DRIVERDATA=C:\Windows\System32\Drivers\DriverData
+LOCALAPPDATA=C:\Users\alawi\AppData\Local
+TERMINAL_DOCKER_RUN_AS_HOST_USER=False
+TERMINAL_DOCKER_FORWARD_ENV=[]
+PSMODULEPATH=%ProgramFiles%\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+PROCESSOR_LEVEL=25
+DISCORD_HISTORY_BACKFILL_LIMIT=50
+TERMINAL_DOCKER_VOLUMES=[]
+PLINK_PROTOCOL=ssh
+TERMINAL_CONTAINER_CPU=1
+PYTHONPATH=C:\Users\alawi\AppData\Local\hermes\hermes-agent;C:\Users\alawi\AppData\Local\hermes\hermes-agent\venv\Lib\site-packages
+PROGRAMDATA=C:\ProgramData
+TERMINAL_CONTAINER_MEMORY=5120
+HERMES_AGENT_TIMEOUT=1800
+SSH_ASKPASS=C:/Program Files/Git/mingw64/bin/git-askpass.exe
+TERMINAL_SINGULARITY_IMAGE=docker://nikolaik/python-nodejs:python3.11-nodejs20
+AGENT_BROWSER_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
+PATH=C:/Program Files/Git/mingw64/libexec/git-core;E;E:\Github\zaneva-imagekit\.venv\Scripts;E;E:\Github\zaneva-imagekit\.venv\Scripts;E;E:\Github\zaneva-imagekit\.venv\Scripts;C:\Users\alawi\bin;C:\Program Files\Git\mingw64\bin;C:\Program Files\Git\usr\local\bin;C:\Program Files\Git\usr\bin;C:\Program Files\Git\usr\bin;C:\Program Files\Git\mingw64\bin;C:\Program Files\Git\usr\bin;C:\Users\alawi\bin;C:\Users\alawi\AppData\Local\Microsoft\WinGet\Links;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin\x64;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.3\bin;C:\Program Files (x86)\Common Files\Oracle\Java\java8path;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0;C:\WINDOWS\System32\OpenSSH;C:\Program Files\Git\cmd;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\nodejs;C:\Program Files\NVIDIA Corporation\Nsight Compute 2026.2.0;C:\Program Files (x86)\cloudflared;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files\Tailscale;C:\Program Files\GitHub CLI;C:\Users\alawi\AppData\Local\hermes\hermes-agent\venv\Scripts;C:\Users\alawi\AppData\Local\hermes\bin;C:\Users\alawi\AppData\Local\Microsoft\WindowsApps;C:\Users\alawi\AppData\Roaming\npm;C:\Users\alawi\AppData\Local\Python\bin;C:\Users\alawi\AppData\Local\Microsoft\WinGet\Packages\BurntSushi.ripgrep.MSVC_Microsoft.Winget.Source_8wekyb3d8bbwe\ripgrep-15.1.0-x86_64-pc-windows-msvc;C:\Users\alawi\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin;C:\Users\alawi\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\alawi\AppData\Local\Programs\Antigravity IDE\bin;C:\Program Files\Git\usr\bin\vendor_perl;C:\Program Files\Git\usr\bin\core_perl
+TERMINAL_TIMEOUT=180
+USERNAME=ZanevaServer
+PWD=E:/Github/zaneva-imagekit
+SLACK_REQUIRE_MENTION=true
+HERMES_QUIET=1
+OLDPWD=E:/Github/zaneva-imagekit
+HERMES_AGENT_TIMEOUT_WARNING=900
+ONEDRIVE=C:\Users\alawi\OneDrive
+MSYSTEM_PREFIX=C:/Program Files/Git/mingw64
+MSYSTEM_CARCH=x86_64
+ONEDRIVECONSUMER=C:\Users\alawi\OneDrive
+VIRTUAL_ENV=E:\Github\zaneva-imagekit\.venv
+HERMES_GATEWAY_BUSY_INPUT_MODE=interrupt
+TERMINAL_CONTAINER_PERSISTENT=True
+TERMINAL_ENV=local
+HERMES_SESSION_PLATFORM=telegram
+HERMES_MAX_ITERATIONS=60
+TEMP=C:\Users\alawi\AppData\Local\Temp
+GIT_EXEC_PATH=C:/Program Files/Git/mingw64/libexec/git-core
+HERMES_EXEC_ASK=1
+ALLUSERSPROFILE=C:\ProgramData
+PKG_CONFIG_SYSTEM_INCLUDE_PATH=C:/Program Files/Git/mingw64/include
+HERMES_GATEWAY_DETACHED=1
+PROCESSOR_ARCHITECTURE=AMD64
+MSYSTEM=MINGW64
+HERMES_AUTO_CONTINUE_FRESHNESS=3600
+USERDOMAIN_ROAMINGPROFILE=ZanevaServer
+HERMES_SESSION_USER_ID=8507165776
+USERPROFILE=C:\Users\alawi
+PROGRAMFILES=C:\Program Files
+TELEGRAM_REACTIONS=false
+TERMINAL_LIFETIME_SECONDS=300
+MANPATH=C:\Program Files\Git\mingw64\local\man;C:\Program Files\Git\mingw64\share\man;C:\Program Files\Git\usr\local\man;C:\Program Files\Git\usr\share\man;C:\Program Files\Git\usr\man;C:\Program Files\Git\share\man
+ORIGINAL_TMP=C:/Users/alawi/AppData/Local/Temp
+MINGW_PREFIX=C:/Program Files/Git/mingw64
+PASTE_COLLAPSE_THRESHOLD_FALLBACK=5
+HOME=C:\Users\alawi
+
+
+------------
+Diagnostic: File system
+Skipped: False
+Success: True
+Exception: None
+Log:
+Temporary directory is 'C:\Users\alawi\AppData\Local\Temp\'...
+Checking basic file I/O...
+Writing to temporary file 'C:\Users\alawi\AppData\Local\Temp\427e4ae8978ba30e5288639e'... OK
+Reading from temporary file 'C:\Users\alawi\AppData\Local\Temp\427e4ae8978ba30e5288639e'... OK
+Deleting temporary file 'C:\Users\alawi\AppData\Local\Temp\427e4ae8978ba30e5288639e'... OK
+Testing IFileSystem instance...
+UserHomePath: C:\Users\alawi
+UserDataDirectoryPath: C:\Users\alawi\.gcm
+GetCurrentDirectory(): E:\Github\zaneva-imagekit
+
+------------
+Diagnostic: Networking
+Skipped: False
+Success: True
+Exception: None
+Log:
+Checking networking and HTTP stack...
+Creating HTTP client... OK
+IsNetworkAvailable: True
+Sending HEAD request to http://example.com...Sending HEAD request to https://example.com... OK
+ OK
+Acquiring free TCP port... OK
+Testing local HTTP loopback connections...
+Creating new HTTP listener for http://localhost:56339/... OK
+Waiting for loopback connection... OK
+Writing response... OK
+Waiting for response data... OK
+Loopback connection data OK
+
+------------
+Diagnostic: Git
+Skipped: False
+Success: True
+Exception: None
+Log:
+Getting Git version... OK
+Git version is '2.54.0.windows.1'
+Locating current repository...Git repository at 'E:/Github/zaneva-imagekit/.git'
+ OK
+Listing all Git configuration... OK
+Git configuration:
+file:C:/Program Files/Git/etc/gitconfig	diff.astextplain.textconv=astextplain
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.clean=git-lfs clean -- %f
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.smudge=git-lfs smudge -- %f
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.process=git-lfs filter-process
+file:C:/Program Files/Git/etc/gitconfig	filter.lfs.required=true
+file:C:/Program Files/Git/etc/gitconfig	http.sslbackend=schannel
+file:C:/Program Files/Git/etc/gitconfig	core.autocrlf=true
+file:C:/Program Files/Git/etc/gitconfig	core.fscache=true
+file:C:/Program Files/Git/etc/gitconfig	core.symlinks=false
+file:C:/Program Files/Git/etc/gitconfig	pull.rebase=false
+file:C:/Program Files/Git/etc/gitconfig	credential.helper=manager
+file:C:/Program Files/Git/etc/gitconfig	credential.https://dev.azure.com.usehttppath=true
+file:C:/Program Files/Git/etc/gitconfig	init.defaultbranch=master
+file:C:/Users/alawi/.gitconfig	windows.appendatomically=false
+file:.git/config	core.repositoryformatversion=0
+file:.git/config	core.filemode=false
+file:.git/config	core.bare=false
+file:.git/config	core.logallrefupdates=true
+file:.git/config	core.symlinks=false
+file:.git/config	core.ignorecase=true
+file:.git/config	remote.origin.url=https://github.com/rizkyzaneva-sukses/zaneva-imagekit.git
+file:.git/config	remote.origin.fetch=+refs/heads/main:refs/remotes/origin/main
+file:.git/config	branch.main.remote=origin
+file:.git/config	branch.main.merge=refs/heads/main
+file:.git/config	user.email=rizkyzaneva-sukses@users.noreply.github.com
+file:.git/config	user.name=Rizky Zaneva
+
+
+------------
+Diagnostic: Credential storage
+Skipped: False
+Success: True
+Exception: None
+Log:
+ICredentialStore instance is of type: CredentialStore
+Writing test credential... OK
+Reading test credential... OK
+Deleting test credential... OK
+
+------------
+Diagnostic: Microsoft authentication (AAD/MSA)
+Skipped: False
+Success: True
+Exception: None
+Log:
+Broker is not enabled.
+Flow type is: Auto
+Gathering MSAL token cache data... OK
+CacheDirectory: C:\Users\alawi\AppData\Local\.IdentityService
+CacheFileName: msal.cache
+CacheFilePath: C:\Users\alawi\AppData\Local\.IdentityService\msal.cache
+Creating cache helper... OK
+Verifying MSAL token cache persistence... OK
+
+------------
+Diagnostic: GitHub API
+Skipped: False
+Success: True
+Exception: None
+Log:
+Using 'https://github.com/' as API target.
+Querying '/meta' endpoint... OK
+

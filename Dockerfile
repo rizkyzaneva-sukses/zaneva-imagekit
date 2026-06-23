@@ -40,12 +40,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Build akan gagal jika onnxruntime-gpu tidak bisa detect CUDA libs.
 # Ini mencegah deploy container yang diam-diam fallback ke CPU.
 RUN python -c "\
-    import onnxruntime as ort; \
-    providers = ort.get_available_providers(); \
-    print('Available providers:', providers); \
-    assert 'CUDAExecutionProvider' in providers, \
-    'GAGAL: CUDAExecutionProvider tidak tersedia! Cek instalasi CUDA/cuDNN.'; \
-    print('OK: CUDAExecutionProvider tersedia')"
+import onnxruntime as ort; \
+providers = ort.get_available_providers(); \
+print('Available providers:', providers); \
+assert 'CUDAExecutionProvider' in providers, \
+'GAGAL: CUDAExecutionProvider tidak tersedia! Cek instalasi CUDA/cuDNN.'; \
+print('OK: CUDAExecutionProvider tersedia')"
 
 # ── Step 4: Pre-download BG remover models (cached layer) ──
 # isnet (~170MB, default) + birefnet (~930MB, opsi "Best" di dropdown).

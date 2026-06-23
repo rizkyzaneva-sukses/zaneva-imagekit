@@ -10,6 +10,10 @@ gunicorn>=21.0.0
 
 # ─── Upscale tab (Real-ESRGAN via ONNX) ───
 # Tidak butuh dependensi tambahan: jalan di onnxruntime (sudah terbawa
-# rembg[cpu]) dengan bobot models/*.onnx yang ikut repo.
+# rembg[gpu]) dengan bobot models/*.onnx yang ikut repo.
 # Torch/basicsr/realesrgan TIDAK dibutuhkan lagi (hanya untuk konversi
 # one-off — lihat convert_to_onnx.py).
+#
+# Pin onnxruntime-gpu to CUDA-12-compatible versions.
+# 1.25+ requires CUDA 13 (libcudart.so.13) which is not in our base image.
+onnxruntime-gpu>=1.23.2,<1.25
