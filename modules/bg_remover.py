@@ -92,10 +92,9 @@ def process_image(in_path: Path, out_path: Path, model_name: str = DEFAULT_MODEL
         else:
             result.save(out_path, format="PNG")
 
-        try:
-            in_path.unlink(missing_ok=True)
-        except OSError:
-            pass  # input masih dipakai (preview di Windows); dibersihkan auto-cleanup
+        # Biarkan auto-cleanup (24h) yang bersihkan input file.
+        # Jangan hapus di sini karena file mungkin masih dipakai
+        # (preview, transfer ke tab lain, proses ulang).
         return {"status": "ok", "output_id": out_path.name}
     except Exception as e:
         return {"status": "error", "error": str(e)}
