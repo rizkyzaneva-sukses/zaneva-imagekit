@@ -171,17 +171,15 @@ def process_image(
         return {"status": "error", "error": str(e)}
 
 
-def build_zip(output_ids: list, out_dir: Path, stem_map: dict) -> BytesIO:
+def build_zip(output_ids: list, out_dir: Path, stem_map: dict, zip_path: Path) -> Path:
     """
     Build ZIP with folder per original file.
     stem_map: {output_id -> original_stem}
     """
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for oid in output_ids:
             p = out_dir / oid
             if p.exists():
                 folder = stem_map.get(oid, "misc")
                 zf.write(p, arcname=f"{folder}/{oid}")
-    buf.seek(0)
-    return buf
+    return zip_path

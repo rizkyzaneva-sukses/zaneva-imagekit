@@ -122,12 +122,29 @@ def handle_upload(tab: str):
         if ext not in ALLOWED_EXT:
             rejected.append({"name": f.filename, "reason": "Format tidak didukung (JPG/PNG/WEBP)"})
             continue
-        content = f.read()
-        if len(content) > MAX_FILE_MB * 1024 * 1024:
+            
+        safe_name = f"{uuid.uuid4().hex}{ext}"
+        out_path = work / "input" / safe_name
+        
+        # Read in chunks to prevent memory exhaustion (DoS)
+        saved_size = 0
+        is_too_large = False
+        with open(out_path, "wb") as out_file:
+            while True:
+                chunk = f.stream.read(8192)
+                if not chunk:
+                    break
+                saved_size += len(chunk)
+                if saved_size > MAX_FILE_MB * 1024 * 1024:
+                    is_too_large = True
+                    break
+                out_file.write(chunk)
+                
+        if is_too_large:
+            out_path.unlink() # Hapus file yang terpotong
             rejected.append({"name": f.filename, "reason": f"Ukuran melebihi {MAX_FILE_MB}MB"})
             continue
-        safe_name = f"{uuid.uuid4().hex}{ext}"
-        (work / "input" / safe_name).write_bytes(content)
+            
         accepted.append({"id": safe_name, "original": f.filename})
 
     if len(files) > MAX_FILES:
@@ -277,14 +294,17 @@ def bg_download_all():
     ids = request.json.get("output_ids", [])
     if not ids:
         return jsonify({"error": "Tidak ada file."}), 400
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        
+    zip_id = uuid.uuid4().hex
+    zip_path = work / f"{zip_id}.zip"
+    
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for oid in ids:
             p = work / "output" / oid
             if p.exists():
                 zf.write(p, arcname=oid)
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="zaneva_nobg.zip",
+                
+    return send_file(zip_path, as_attachment=True, download_name="zaneva_nobg.zip",
                      mimetype="application/zip")
 
 
@@ -406,14 +426,17 @@ def upscale_download_all():
     ids = request.json.get("output_ids", [])
     if not ids:
         return jsonify({"error": "Tidak ada file."}), 400
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        
+    zip_id = uuid.uuid4().hex
+    zip_path = work / f"{zip_id}.zip"
+    
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for oid in ids:
             p = work / "output" / oid
             if p.exists():
                 zf.write(p, arcname=oid)
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="zaneva_upscaled.zip",
+                
+    return send_file(zip_path, as_attachment=True, download_name="zaneva_upscaled.zip",
                      mimetype="application/zip")
 
 
@@ -509,8 +532,12 @@ def resize_download_all():
     stem_map = data.get("stem_map", {})
     if not output_ids:
         return jsonify({"error": "Tidak ada file."}), 400
-    buf = resizer.build_zip(output_ids, work / "output", stem_map)
-    return send_file(buf, as_attachment=True, download_name="zaneva_resized.zip",
+        
+    zip_id = uuid.uuid4().hex
+    zip_path = work / f"{zip_id}.zip"
+    
+    resizer.build_zip(output_ids, work / "output", stem_map, zip_path)
+    return send_file(zip_path, as_attachment=True, download_name="zaneva_resized.zip",
                      mimetype="application/zip")
 
 
@@ -600,14 +627,17 @@ def retouch_download_all():
     ids = request.json.get("output_ids", [])
     if not ids:
         return jsonify({"error": "Tidak ada file."}), 400
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        
+    zip_id = uuid.uuid4().hex
+    zip_path = work / f"{zip_id}.zip"
+    
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for oid in ids:
             p = work / "output" / oid
             if p.exists():
                 zf.write(p, arcname=oid)
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="zaneva_retouched.zip",
+                
+    return send_file(zip_path, as_attachment=True, download_name="zaneva_retouched.zip",
                      mimetype="application/zip")
 
 
