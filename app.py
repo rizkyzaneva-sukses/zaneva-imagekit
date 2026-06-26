@@ -46,7 +46,7 @@ TMP_BASE = Path(os.environ.get("TMP_DIR") or (Path(tempfile.gettempdir()) / "ima
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 if _HEIC_OK:
     ALLOWED_EXT |= {".heic", ".heif"}
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.1"
 
 TMP_BASE.mkdir(parents=True, exist_ok=True)
 
