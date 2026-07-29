@@ -118,6 +118,7 @@
         /* Batch actions */
         .batch-actions { margin-top: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .batch-actions .count { font-size: 13px; color: var(--muted); }
+        .batch-transfer-group { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; background: rgba(255,255,255,.03); padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); }
 
         /* Loading overlay */
         .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100; align-items: center; justify-content: center; }
@@ -273,6 +274,12 @@
                 <div class="batch-actions" id="batchActions" style="display:none">
                     <span class="count" id="batchCount">0 file siap didownload</span>
                     <button class="btn btn-success" onclick="downloadAll()">⬇ Download Semua (ZIP)</button>
+                    <div class="batch-transfer-group">
+                        <span style="font-size:12px; color:var(--muted); font-weight:500;">➡️ Kirim Semua ke:</span>
+                        <button class="btn btn-outline" onclick="sendBatchTo('bg', 'upscale')">🔍 Upscale</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('bg', 'resize')">📐 Resize</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('bg', 'retouch')">✨ Retouch</button>
+                    </div>
                     <button class="btn btn-danger" onclick="clearAll()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAll()">🔄 Upload Lagi</button>
                 </div>
@@ -299,6 +306,12 @@
                 <div class="batch-actions" id="batchActionsUpscale" style="display:none">
                     <span class="count" id="batchCountUpscale">0 file</span>
                     <button class="btn btn-success" onclick="downloadAllUpscale()">⬇ Download Semua</button>
+                    <div class="batch-transfer-group">
+                        <span style="font-size:12px; color:var(--muted); font-weight:500;">➡️ Kirim Semua ke:</span>
+                        <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'bg')">🎨 Remove BG</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'resize')">📐 Resize</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'retouch')">✨ Retouch</button>
+                    </div>
                     <button class="btn btn-danger" onclick="clearAllUpscale()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAllUpscale()">🔄 Upload Lagi</button>
                 </div>
@@ -317,6 +330,12 @@
                 <div class="batch-actions" id="batchActionsResize" style="display:none">
                     <span class="count" id="batchCountResize">0 file</span>
                     <button class="btn btn-success" onclick="downloadAllResize()">⬇ Download Semua (ZIP)</button>
+                    <div class="batch-transfer-group">
+                        <span style="font-size:12px; color:var(--muted); font-weight:500;">➡️ Kirim Semua ke:</span>
+                        <button class="btn btn-outline" onclick="sendBatchTo('resize', 'bg')">🎨 Remove BG</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('resize', 'upscale')">🔍 Upscale</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('resize', 'retouch')">✨ Retouch</button>
+                    </div>
                     <button class="btn btn-danger" onclick="clearAllResize()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAllResize()">🔄 Upload Lagi</button>
                 </div>
@@ -341,6 +360,12 @@
                 <div class="batch-actions" id="batchActionsRetouch" style="display:none">
                     <span class="count" id="batchCountRetouch">0 file siap didownload</span>
                     <button class="btn btn-success" onclick="downloadAllRetouch()">⬇ Download Semua (ZIP)</button>
+                    <div class="batch-transfer-group">
+                        <span style="font-size:12px; color:var(--muted); font-weight:500;">➡️ Kirim Semua ke:</span>
+                        <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'bg')">🎨 Remove BG</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'upscale')">🔍 Upscale</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'resize')">📐 Resize</button>
+                    </div>
                     <button class="btn btn-danger" onclick="clearAllRetouch()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAllRetouch()">🔄 Upload Lagi</button>
                 </div>
@@ -518,6 +543,7 @@
                     <button class="btn btn-success" onclick="location.href=dlUrl('bg','${f.outputId}','${esc(f.original)}')">⬇</button>
                     <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
                     <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
+                    <button class="btn btn-outline" onclick="sendTo('bg','${f.outputId}','${esc(f.original)}','retouch')">→ Retouch</button>
                 </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryBg(${i})">🔄 Retry</button></div>` : ''}`;
             grid.appendChild(card);
         });
@@ -727,8 +753,9 @@
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/upscale/preview/${f.outputId}','_blank')">👁</button>
                     <button class="btn btn-success" onclick="location.href=dlUrl('upscale','${f.outputId}','${esc(f.original)}')">⬇</button>
-                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','bg')">��� Remove BG</button>
+                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','bg')">🎨 Remove BG</button>
                     <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
+                    <button class="btn btn-outline" onclick="sendTo('upscale','${f.outputId}','${esc(f.original)}','retouch')">→ Retouch</button>
                 </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryUpscale(${i})">🔄 Retry</button></div>` : ''}`;
             grid.appendChild(card);
         });
@@ -889,8 +916,75 @@
                 showToast('Foto dikirim. Menunggu model Upscaler siap...', 'success');
                 await waitUpscaleReady();
                 processAllUpscale();
+            } else if (toTab === 'retouch') {
+                retouchFiles.push({ id: data.id, original: data.original, status: 'pending', outputId: null, faces: 0 });
+                renderRetouch(); renderRetouchStats(); processAllRetouch();
+                showToast('Foto dikirim ke Retouch', 'success');
             }
         } catch (err) { hideLoading(); showToast(err.message, 'error'); }
+    }
+
+    async function sendBatchTo(fromTab, toTab) {
+        let items = [];
+        if (fromTab === 'bg') {
+            items = bgFiles.filter(f => f.status === 'done' && f.outputId).map(f => ({ output_id: f.outputId, original: f.original }));
+        } else if (fromTab === 'upscale') {
+            items = upscaleFiles.filter(f => f.status === 'done' && f.outputId).map(f => ({ output_id: f.outputId, original: f.original }));
+        } else if (fromTab === 'resize') {
+            items = resizeFiles.filter(f => f.status === 'done' && f.outputs && f.outputs.length)
+                .flatMap(f => f.outputs.map(o => ({ output_id: o.output_id, original: f.original + '_' + o.label })));
+        } else if (fromTab === 'retouch') {
+            items = retouchFiles.filter(f => f.status === 'done' && f.outputId).map(f => ({ output_id: f.outputId, original: f.original }));
+        }
+
+        if (!items.length) {
+            showToast('Tidak ada file hasil yang bisa dikirim', 'error');
+            return;
+        }
+
+        showLoading('Mengirim ' + items.length + ' file ke ' + TAB_LABEL[toTab] + '...');
+        try {
+            const res = await fetch('/transfer-batch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ from_tab: fromTab, to_tab: toTab, items })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            hideLoading();
+            activateTab(toTab);
+
+            if (toTab === 'bg') {
+                for (const item of data.transferred) {
+                    bgFiles.push({ id: item.id, original: item.original, status: 'pending', outputId: null });
+                }
+                renderBg(); renderBgStats(); processAllBg();
+            } else if (toTab === 'upscale') {
+                for (const item of data.transferred) {
+                    upscaleFiles.push({ id: item.id, original: item.original, status: 'pending', outputId: null, origRes: '', newRes: '' });
+                }
+                renderUpscale();
+                showToast(data.transferred.length + ' file dikirim. Menunggu model Upscaler...', 'success');
+                await waitUpscaleReady();
+                processAllUpscale();
+            } else if (toTab === 'resize') {
+                for (const item of data.transferred) {
+                    resizeFiles.push({ id: item.id, original: item.original, status: 'pending', outputs: [] });
+                }
+                renderResize(); processAllResize();
+            } else if (toTab === 'retouch') {
+                for (const item of data.transferred) {
+                    retouchFiles.push({ id: item.id, original: item.original, status: 'pending', outputId: null, faces: 0 });
+                }
+                renderRetouch(); renderRetouchStats(); processAllRetouch();
+            }
+
+            showToast(data.transferred.length + ' file berhasil dikirim ke ' + TAB_LABEL[toTab] + '!', 'success');
+        } catch (err) {
+            hideLoading();
+            showToast(err.message, 'error');
+        }
     }
 
     function waitUpscaleReady() {
@@ -1006,6 +1100,7 @@
                 ${f.status === 'done' && f.outputId ? `<div class="actions">
                     <button class="btn btn-primary" onclick="window.open('/retouch/preview/${f.outputId}','_blank')">👁</button>
                     <button class="btn btn-success" onclick="location.href=dlUrl('retouch','${f.outputId}','${esc(f.original)}')">⬇</button>
+                    <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','bg')">🎨 Remove BG</button>
                     <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
                     <button class="btn btn-outline" onclick="sendTo('retouch','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
                 </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryRetouch(${i})">🔄 Retry</button></div>` : ''}`;

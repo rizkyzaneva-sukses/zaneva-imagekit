@@ -231,6 +231,38 @@ def transfer():
     return jsonify({"id": new_id, "original": original})
 
 
+@app.route("/transfer-batch", methods=["POST"])
+@login_required
+def transfer_batch():
+    """Salin sekelompok output dari tab asal ke folder input tab tujuan sekaligus."""
+    data = request.json or {}
+    from_tab = data.get("from_tab")
+    to_tab = data.get("to_tab")
+    items = data.get("items") or []
+    valid = {"bg", "upscale", "resize", "retouch"}
+    if from_tab not in valid or to_tab not in valid or from_tab == to_tab:
+        return jsonify({"error": "Tab tidak valid."}), 400
+    if not items:
+        return jsonify({"error": "Tidak ada item untuk dikirim."}), 400
+
+    transferred = []
+    src_dir = get_work_dir(from_tab) / "output"
+    dst_dir = get_work_dir(to_tab) / "input"
+
+    for item in items:
+        output_id = item.get("output_id")
+        original = item.get("original") or output_id
+        if not output_id:
+            continue
+        src = src_dir / output_id
+        if src.exists():
+            new_id = f"{uuid.uuid4().hex}{src.suffix.lower()}"
+            shutil.copy2(src, dst_dir / new_id)
+            transferred.append({"id": new_id, "original": original})
+
+    return jsonify({"status": "ok", "transferred": transferred})
+
+
 # ══════════════════════════════════════════════
 # TAB 1 — Remove BG
 # ══════════════════════════════════════════════
