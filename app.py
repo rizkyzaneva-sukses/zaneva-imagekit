@@ -46,12 +46,29 @@ TMP_BASE = Path(os.environ.get("TMP_DIR") or (Path(tempfile.gettempdir()) / "ima
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 if _HEIC_OK:
     ALLOWED_EXT |= {".heic", ".heif"}
+MAX_VIDEO_MB = int(os.environ.get("MAX_VIDEO_SIZE_MB", 1500))
+MAX_VIDEO_FILES = int(os.environ.get("MAX_VIDEO_FILES", 3))
 APP_VERSION = "1.1.1"
 
 TMP_BASE.mkdir(parents=True, exist_ok=True)
 
 # ─── Import modules ───
-from modules import bg_remover, upscaler, resizer, retoucher
+from modules import bg_remover, upscaler, resizer, retoucher, video_resizer
+
+# Aturan upload per tab. Tab gambar tetap memakai batas lama persis; video
+# punya slot sendiri supaya menaikkan limit video tidak ikut melonggarkan
+# tab foto (dulu ALLOWED_EXT/MAX_FILE_MB dipakai bersama semua tab).
+_IMG_RULE = {"ext": ALLOWED_EXT, "max_mb": MAX_FILE_MB, "max_files": MAX_FILES,
+             "reject": "Format tidak didukung (JPG/PNG/WEBP)"}
+TAB_UPLOAD = {
+    "bg": _IMG_RULE,
+    "upscale": _IMG_RULE,
+    "resize": _IMG_RULE,
+    "retouch": _IMG_RULE,
+    "video": {"ext": video_resizer.ALLOWED_EXT, "max_mb": MAX_VIDEO_MB,
+              "max_files": MAX_VIDEO_FILES,
+              "reject": "Format tidak didukung (MP4/MOV/MKV/WEBM)"},
+}
 
 # Semua model lazy-load: BG remover dimuat saat pertama dipakai (~beberapa
 # detik untuk isnet), upscaler saat tab Upscale dibuka. Startup jadi instan.
@@ -96,17 +113,26 @@ def get_work_dir(tab: str) -> Path:
     return work
 
 
-def _check_disk():
+def _check_disk(need_bytes: int = 0):
+    """Cek sisa disk. need_bytes = perkiraan ruang yang akan dipakai job ini.
+
+    Untuk foto (need_bytes=0) perilakunya sama seperti sebelumnya: minimal 1GB
+    bebas. Untuk video, threshold flat tidak cukup — satu job bisa menulis
+    ratusan MB sampai GB, jadi kebutuhannya dihitung di depan.
+    """
     stat = shutil.disk_usage(str(TMP_BASE))
-    free_gb = stat.free / (1024 ** 3)
-    if free_gb < 1.0:
-        return False, f"Disk hampir penuh ({free_gb:.1f}GB tersisa)"
+    required = need_bytes + (1024 ** 3)   # selalu sisakan 1GB headroom
+    if stat.free < required:
+        return False, (f"Disk tidak cukup: butuh ~{required / 1024**3:.1f}GB, "
+                       f"tersisa {stat.free / 1024**3:.1f}GB")
     return True, None
 
 
 def handle_upload(tab: str):
     """Common upload handler for all tabs."""
-    ok, err = _check_disk()
+    # Body multipart ditulis penuh ke disk, jadi ukurannya ikut diperhitungkan.
+    # Penting untuk video: 1GB headroom saja tidak cukup menampung upload 1.5GB.
+    ok, err = _check_disk(request.content_length or 0)
     if not ok:
         return jsonify({"error": err}), 507
 
@@ -114,13 +140,14 @@ def handle_upload(tab: str):
     if not files:
         return jsonify({"error": "Tidak ada file yang dikirim."}), 400
 
+    cfg = TAB_UPLOAD.get(tab, _IMG_RULE)
     work = get_work_dir(tab)
     accepted, rejected = [], []
 
-    for f in files[:MAX_FILES]:
+    for f in files[:cfg["max_files"]]:
         ext = Path(f.filename).suffix.lower()
-        if ext not in ALLOWED_EXT:
-            rejected.append({"name": f.filename, "reason": "Format tidak didukung (JPG/PNG/WEBP)"})
+        if ext not in cfg["ext"]:
+            rejected.append({"name": f.filename, "reason": cfg["reject"]})
             continue
             
         safe_name = f"{uuid.uuid4().hex}{ext}"
@@ -135,20 +162,20 @@ def handle_upload(tab: str):
                 if not chunk:
                     break
                 saved_size += len(chunk)
-                if saved_size > MAX_FILE_MB * 1024 * 1024:
+                if saved_size > cfg["max_mb"] * 1024 * 1024:
                     is_too_large = True
                     break
                 out_file.write(chunk)
-                
+
         if is_too_large:
             out_path.unlink() # Hapus file yang terpotong
-            rejected.append({"name": f.filename, "reason": f"Ukuran melebihi {MAX_FILE_MB}MB"})
+            rejected.append({"name": f.filename, "reason": f"Ukuran melebihi {cfg['max_mb']}MB"})
             continue
-            
+
         accepted.append({"id": safe_name, "original": f.filename})
 
-    if len(files) > MAX_FILES:
-        rejected.append({"name": "...", "reason": f"Hanya {MAX_FILES} file pertama yang diproses"})
+    if len(files) > cfg["max_files"]:
+        rejected.append({"name": "...", "reason": f"Hanya {cfg['max_files']} file pertama yang diproses"})
 
     return jsonify({"accepted": accepted, "rejected": rejected})
 
@@ -182,6 +209,10 @@ def index():
     return render_template("index.html",
                            max_files=MAX_FILES,
                            max_mb=MAX_FILE_MB,
+                           max_video_files=MAX_VIDEO_FILES,
+                           max_video_mb=MAX_VIDEO_MB,
+                           video_ok=video_resizer.is_available(),
+                           video_reason=video_resizer.unavailable_reason(),
                            version=APP_VERSION,
                            presets=resizer.PLATFORM_PRESETS)
 
@@ -198,6 +229,7 @@ def status():
             "upscaler": "loaded" if upscaler.is_ready() else ("loading" if upscaler.is_loading() else "lazy"),
             "upscaler_provider": upscaler.get_provider() if upscaler.is_ready() else "none",
         },
+        "ffmpeg": "ok" if video_resizer.is_available() else "missing",
         "disk": {
             "total_gb": round(disk.total / 1024**3, 1),
             "free_gb": round(disk.free / 1024**3, 1),
@@ -704,6 +736,187 @@ def retouch_status():
         "upscaler_ready": has_upscaler,
         "upscaler_provider": upscaler.get_provider() if has_upscaler else "none",
     })
+
+
+# ══════════════════════════════════════════════
+# TAB 5 — Video Downscale
+# ══════════════════════════════════════════════
+# Beda dari tab gambar: encode video makan menit, bukan detik, jadi request
+# tidak boleh menunggu. Pola yang dipakai sama seperti /upscale/init +
+# /upscale/status — thread background + polling dari frontend.
+#
+# Catatan: registry job ini in-memory. Aman selama gunicorn jalan dengan
+# `-w 1` (satu proses, lihat Dockerfile). Kalau worker dinaikkan, tiap worker
+# akan punya dict sendiri dan polling bisa nyasar ke worker yang salah —
+# saat itu registry harus pindah ke storage bersama (Redis/file).
+VIDEO_JOBS = {}
+_VIDEO_JOBS_LOCK = threading.Lock()
+_VIDEO_JOB_TTL = 6 * 3600
+
+
+def _video_job_set(job_id: str, **kv):
+    with _VIDEO_JOBS_LOCK:
+        job = VIDEO_JOBS.get(job_id)
+        if job is not None:
+            job.update(kv)
+
+
+def _video_job_get(job_id: str):
+    """Ambil job milik sesi ini saja, supaya job orang lain tidak bisa diintip."""
+    with _VIDEO_JOBS_LOCK:
+        job = VIDEO_JOBS.get(job_id)
+        if job is None or job["sid"] != session.get("sid"):
+            return None
+        return dict(job)
+
+
+def _video_prune_jobs():
+    now = time.time()
+    with _VIDEO_JOBS_LOCK:
+        for jid in [k for k, v in VIDEO_JOBS.items()
+                    if now - v["created"] > _VIDEO_JOB_TTL]:
+            VIDEO_JOBS.pop(jid, None)
+
+
+@app.route("/video/available", methods=["GET"])
+@login_required
+def video_available():
+    return jsonify({"available": video_resizer.is_available(),
+                    "reason": video_resizer.unavailable_reason()})
+
+
+@app.route("/video/upload", methods=["POST"])
+@login_required
+def video_upload():
+    if not video_resizer.is_available():
+        return jsonify({"error": video_resizer.unavailable_reason()}), 503
+    return handle_upload("video")
+
+
+@app.route("/video/process/<file_id>", methods=["POST"])
+@login_required
+def video_process(file_id):
+    if not video_resizer.is_available():
+        return jsonify({"error": video_resizer.unavailable_reason()}), 503
+
+    work = get_work_dir("video")
+    in_path = work / "input" / file_id
+    if not in_path.exists():
+        return jsonify({"error": "File tidak ditemukan."}), 404
+
+    data = request.json or {}
+    target = str(data.get("target", video_resizer.DEFAULT_TARGET))
+    quality = str(data.get("quality", video_resizer.DEFAULT_QUALITY))
+    original_name = data.get("original_name") or file_id
+
+    # Output hasil downscale hampir selalu lebih kecil dari input, tapi selama
+    # encode keduanya ada di disk sekaligus. Pakai 1.2x input sebagai estimasi.
+    ok, err = _check_disk(int(in_path.stat().st_size * 1.2))
+    if not ok:
+        return jsonify({"error": err}), 507
+
+    _video_prune_jobs()
+    job_id = uuid.uuid4().hex
+    with _VIDEO_JOBS_LOCK:
+        VIDEO_JOBS[job_id] = {
+            "sid": session.get("sid"), "status": "queued", "percent": 0.0,
+            "cancel": False, "result": None, "error": None, "created": time.time(),
+        }
+
+    out_dir = work / "output"
+
+    def _cancelled():
+        with _VIDEO_JOBS_LOCK:
+            job = VIDEO_JOBS.get(job_id)
+            return bool(job and job["cancel"])
+
+    def _on_progress(pct):
+        # Progress pertama baru muncul setelah job lolos antrean semaphore,
+        # jadi ini sekaligus penanda transisi queued -> running.
+        _video_job_set(job_id, status="running", percent=round(pct, 1))
+
+    def _work():
+        try:
+            result = video_resizer.process_video(
+                in_path, out_dir, target, quality, original_name,
+                progress_cb=_on_progress, cancel_cb=_cancelled,
+            )
+        except Exception as e:
+            _video_job_set(job_id, status="error", error=str(e))
+            return
+        if result["status"] == "ok":
+            _video_job_set(job_id, status="done", percent=100.0, result=result)
+        elif result["status"] == "skipped":
+            _video_job_set(job_id, status="skipped", error=result.get("error"),
+                           result=result)
+        else:
+            _video_job_set(job_id, status="error", error=result.get("error"))
+
+    threading.Thread(target=_work, daemon=True).start()
+    return jsonify({"job_id": job_id, "status": "queued"})
+
+
+@app.route("/video/job/<job_id>", methods=["GET"])
+@login_required
+def video_job(job_id):
+    job = _video_job_get(job_id)
+    if job is None:
+        return jsonify({"error": "Job tidak ditemukan."}), 404
+    return jsonify({"status": job["status"], "percent": job["percent"],
+                    "result": job["result"], "error": job["error"]})
+
+
+@app.route("/video/cancel/<job_id>", methods=["POST"])
+@login_required
+def video_cancel(job_id):
+    if _video_job_get(job_id) is None:
+        return jsonify({"error": "Job tidak ditemukan."}), 404
+    _video_job_set(job_id, cancel=True)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/video/preview/<output_id>")
+@login_required
+def video_preview(output_id):
+    p = get_work_dir("video") / "output" / output_id
+    if not p.exists():
+        abort(404)
+    # conditional=True mengaktifkan HTTP Range, syarat agar <video> bisa
+    # di-seek tanpa mengunduh seluruh file lebih dulu.
+    return send_file(p, mimetype="video/mp4", conditional=True)
+
+
+@app.route("/video/download/<output_id>")
+@login_required
+def video_download(output_id):
+    p = get_work_dir("video") / "output" / output_id
+    if not p.exists():
+        abort(404)
+    dl_name = request.args.get("name", output_id)
+    return send_file(p, as_attachment=True, download_name=dl_name,
+                     mimetype="video/mp4")
+
+
+@app.route("/video/delete-output/<output_id>", methods=["POST"])
+@login_required
+def video_delete_output(output_id):
+    p = get_work_dir("video") / "output" / output_id
+    if p.exists():
+        p.unlink()
+        return jsonify({"status": "ok"})
+    return jsonify({"error": "File tidak ditemukan."}), 404
+
+
+@app.route("/video/clear", methods=["POST"])
+@login_required
+def video_clear():
+    work = get_work_dir("video")
+    count = 0
+    for folder in ["input", "output"]:
+        for p in (work / folder).iterdir():
+            p.unlink(missing_ok=True)
+            count += 1
+    return jsonify({"status": "ok", "deleted_count": count})
 
 
 # ─── Entry point ───

@@ -36,6 +36,7 @@
         .tab.active[data-tab="upscale"] { color: var(--accent-blue); border-color: var(--accent-blue); }
         .tab.active[data-tab="resize"] { color: var(--accent-green); border-color: var(--accent-green); }
         .tab.active[data-tab="retouch"] { color: #F59E0B; border-color: #F59E0B; }
+        .tab.active[data-tab="video"] { color: #EC4899; border-color: #EC4899; }
 
         /* Layout */
         .main { display: flex; height: calc(100vh - 110px); }
@@ -128,6 +129,13 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 12px; overflow: hidden; }
         .progress-bar .fill { height: 100%; background: var(--accent-blue); border-radius: 2px; transition: width .3s; }
+        /* Progress per-kartu: encode video butuh menit, jadi tiap file punya
+           bar sendiri, bukan satu bar global seperti tab gambar. */
+        .file-card .card-progress { padding: 0 12px 12px; }
+        .file-card .card-progress .progress-bar { margin-top: 0; }
+        .file-card .card-progress .fill { background: #EC4899; }
+        .file-card video.thumb { width: 100%; height: 180px; object-fit: contain; background: #000; display: block; }
+        .file-card .vid-placeholder { width: 100%; height: 180px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 40px; }
 
         /* Toast */
         .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; font-size: 13px; z-index: 200; transform: translateY(100px); opacity: 0; transition: all .3s; }
@@ -173,6 +181,7 @@
         <div class="tab" data-tab="upscale">🔍 Upscale</div>
         <div class="tab" data-tab="resize">📐 Resize & Compress</div>
         <div class="tab" data-tab="retouch">✨ Retouch</div>
+        <div class="tab" data-tab="video">🎬 Video Downscale</div>
     </div>
 
     <!-- Main layout -->
@@ -243,6 +252,30 @@
                 </div>
                 <p id="retouchUpscaleNote" style="font-size:11px; color:#475569; margin-top:6px;">
                     ℹ️ Upscale menggunakan RealESRGAN (auto GPU/CPU).
+                </p>
+            </div>
+            <!-- Video settings -->
+            <div class="sidebar-section" id="settings-video" style="display:none">
+                <h3>🎬 Video Settings</h3>
+                <label>Resolusi Target</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="videoTarget" value="1080" checked> 1080p</label>
+                    <label><input type="radio" name="videoTarget" value="720"> 720p</label>
+                    <label><input type="radio" name="videoTarget" value="480"> 480p</label>
+                </div>
+                <p style="font-size:11px; color:#475569; margin-top:6px;">
+                    Mengacu ke sisi pendek frame — video portrait ikut menyesuaikan.
+                    Rasio aspek selalu dipertahankan (tanpa crop).
+                </p>
+                <label style="margin-top:16px">Kualitas</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="videoQuality" value="high"> Tinggi (file besar)</label>
+                    <label><input type="radio" name="videoQuality" value="medium" checked> Sedang</label>
+                    <label><input type="radio" name="videoQuality" value="low"> Hemat (file kecil)</label>
+                </div>
+                <p style="font-size:11px; color:#475569; margin-top:6px;">
+                    ℹ️ Audio disalin apa adanya. Satu video diproses pada satu waktu;
+                    sisanya mengantre.
                 </p>
             </div>
             <!-- Download options (sempre visible) -->
@@ -370,6 +403,35 @@
                     <button class="btn btn-outline" onclick="resetAllRetouch()">🔄 Upload Lagi</button>
                 </div>
                 <div class="empty" id="emptyStateRetouch">Upload foto untuk retouch kulit natural.</div>
+            </div>
+
+            <!-- Video Panel -->
+            <div class="panel" id="panel-video">
+                {% if not video_ok %}
+                <div class="warning-banner" id="videoUnavailable" style="display:block">
+                    ⚠️ Fitur video hanya tersedia di versi server (Docker).
+                    {{ video_reason }} Versi desktop/.exe tidak menyertakan ffmpeg.
+                </div>
+                {% endif %}
+                <div class="dropzone" id="dropzone-video" {% if not video_ok %}style="opacity:.4; pointer-events:none"{% endif %}>
+                    <div class="icon">🎬</div>
+                    <p>Drag & drop video untuk diturunkan resolusinya, atau <span>pilih file</span></p>
+                    <p class="hint">MP4, MOV, MKV, WEBM — Max {{ max_video_files }} file, {{ max_video_mb }}MB per file</p>
+                </div>
+                <input type="file" id="fileInputVideo" multiple accept=".mp4,.mov,.mkv,.webm,.m4v" {% if not video_ok %}disabled{% endif %}>
+                <div class="stats" id="statsVideo" style="display:none">
+                    <div class="stat">📁 Total: <strong id="totalCountVideo">0</strong></div>
+                    <div class="stat">✅ Selesai: <strong id="doneCountVideo">0</strong></div>
+                    <div class="stat">⏳ Proses: <strong id="pendingCountVideo">0</strong></div>
+                    <div class="stat">💾 Hemat: <strong id="savedVideo">—</strong></div>
+                </div>
+                <div class="file-grid" id="fileGridVideo"></div>
+                <div class="batch-actions" id="batchActionsVideo" style="display:none">
+                    <span class="count" id="batchCountVideo">0 video siap didownload</span>
+                    <button class="btn btn-danger" onclick="clearAllVideo()">🗑 Hapus Semua</button>
+                    <button class="btn btn-outline" onclick="resetAllVideo()">🔄 Upload Lagi</button>
+                </div>
+                <div class="empty" id="emptyStateVideo">Upload video untuk menurunkan resolusi (mis. 1440p → 1080p).</div>
             </div>
         </div>
     </div>
@@ -1138,6 +1200,209 @@
         retouchFiles = []; retouchOutputs = []; renderRetouch(); renderRetouchStats();
         document.getElementById('batchActionsRetouch').style.display = 'none';
         document.getElementById('statsRetouch').style.display = 'none'; fiRetouch.value = '';
+    }
+
+    // ═══════════════════════════════════════
+    // TAB 5: VIDEO DOWNSCALE
+    // ═══════════════════════════════════════
+    // Beda dari tab gambar: encode makan menit, jadi tidak memakai overlay
+    // loading global. Tiap kartu punya progress bar sendiri yang di-poll dari
+    // /video/job/<id>. File diproses berurutan karena server juga hanya
+    // menjalankan satu encode pada satu waktu (semaphore di video_resizer).
+    const VIDEO_OK = {{ 'true' if video_ok else 'false' }};
+    const dzVid = document.getElementById('dropzone-video');
+    const fiVideo = document.getElementById('fileInputVideo');
+    let videoFiles = [], videoOutputs = [], videoBusy = false;
+
+    if (VIDEO_OK) {
+        dzVid.addEventListener('click', () => fiVideo.click());
+        dzVid.addEventListener('dragover', e => { e.preventDefault(); dzVid.classList.add('dragover'); });
+        dzVid.addEventListener('dragleave', () => dzVid.classList.remove('dragover'));
+        dzVid.addEventListener('drop', e => { e.preventDefault(); dzVid.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadVideo(e.dataTransfer.files); });
+        fiVideo.addEventListener('change', e => { if (e.target.files.length) uploadVideo(e.target.files); });
+    }
+
+    async function uploadVideo(fileList) {
+        showLoading('Mengupload video... (file besar, mohon tunggu)');
+        const fd = new FormData();
+        for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
+        try {
+            const res = await fetch('/video/upload', { method: 'POST', body: fd });
+            if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { throw new Error('Server error: ' + text.substring(0, 100)); }
+            if (data.error) throw new Error(data.error);
+            for (const f of data.accepted) videoFiles.push({ id: f.id, original: f.original, status: 'pending', percent: 0, outputId: null });
+            if (data.rejected.length) {
+                for (const r of data.rejected) showToast(r.name + ': ' + r.reason, 'error');
+            }
+            hideLoading();
+            renderVideo(); renderVideoStats(); processAllVideo();
+        } catch (err) { hideLoading(); showToast(err.message, 'error'); }
+    }
+
+    async function processAllVideo() {
+        if (videoBusy) return;          // sudah ada loop jalan; antrean diambil olehnya
+        videoBusy = true;
+        try {
+            while (true) {
+                const f = videoFiles.find(x => x.status === 'pending');
+                if (!f) break;
+                await processOneVideo(f);
+                renderVideo(); renderVideoStats();
+            }
+        } finally { videoBusy = false; }
+        refreshVideoBatchBar();
+    }
+
+    async function processOneVideo(f) {
+        const target = document.querySelector('input[name="videoTarget"]:checked').value;
+        const quality = document.querySelector('input[name="videoQuality"]:checked').value;
+        f.status = 'queued'; f.percent = 0; renderVideo();
+        try {
+            const res = await fetch('/video/process/' + f.id, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target, quality, original_name: f.original })
+            });
+            if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            f.jobId = data.job_id;
+            await pollVideoJob(f);
+        } catch (err) { f.status = 'error'; f.error = err.message; }
+    }
+
+    function pollVideoJob(f) {
+        return new Promise(resolve => {
+            const tick = async () => {
+                try {
+                    const r = await fetch('/video/job/' + f.jobId);
+                    if (r.status === 401 || r.redirected) { location.href = '/login'; return resolve(); }
+                    const d = await r.json();
+                    if (d.error && !d.status) throw new Error(d.error);
+
+                    f.percent = d.percent || 0;
+                    if (d.status === 'done') {
+                        const res = d.result || {};
+                        f.status = 'done'; f.percent = 100; f.outputId = res.output_id;
+                        f.origRes = res.orig_res; f.newRes = res.new_res;
+                        f.sizeBefore = res.size_mb_before; f.sizeAfter = res.size_mb_after;
+                        f.savedPct = res.saved_pct;
+                        videoOutputs.push(res.output_id);
+                        return resolve();
+                    }
+                    if (d.status === 'skipped') { f.status = 'skipped'; f.error = d.error; return resolve(); }
+                    if (d.status === 'error') { f.status = 'error'; f.error = d.error; return resolve(); }
+
+                    f.status = d.status;      // queued | running
+                    renderVideoProgress(f);
+                    setTimeout(tick, 1000);
+                } catch (err) { f.status = 'error'; f.error = err.message; resolve(); }
+            };
+            tick();
+        });
+    }
+
+    // Update bar tanpa re-render seluruh grid — supaya <video> yang sudah
+    // selesai tidak ter-reload tiap detik.
+    function renderVideoProgress(f) {
+        const bar = document.getElementById('vidFill-' + f.id);
+        const lbl = document.getElementById('vidStatus-' + f.id);
+        if (bar) bar.style.width = f.percent + '%';
+        if (lbl) lbl.textContent = f.status === 'queued'
+            ? '⏳ Menunggu antrean...'
+            : '⚙️ Encoding ' + f.percent.toFixed(0) + '%';
+    }
+
+    function renderVideo() {
+        const grid = document.getElementById('fileGridVideo');
+        const empty = document.getElementById('emptyStateVideo');
+        if (!videoFiles.length) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none'; grid.innerHTML = '';
+        videoFiles.forEach((f, i) => {
+            const card = document.createElement('div'); card.className = 'file-card';
+            const working = f.status === 'queued' || f.status === 'running';
+            const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
+            let st;
+            if (f.status === 'done') st = `✅ ${f.origRes} → ${f.newRes} · ${f.sizeBefore}MB → ${f.sizeAfter}MB (−${f.savedPct}%)`;
+            else if (f.status === 'error') st = '❌ ' + (f.error || 'Error');
+            else if (f.status === 'skipped') st = '⚠️ ' + (f.error || 'Dilewati');
+            else if (f.status === 'running') st = '⚙️ Encoding ' + f.percent.toFixed(0) + '%';
+            else if (f.status === 'queued') st = '⏳ Menunggu antrean...';
+            else st = '⏳ Pending';
+
+            const media = f.status === 'done' && f.outputId
+                ? `<video class="thumb" src="/video/preview/${f.outputId}" controls preload="metadata"></video>`
+                : `<div class="vid-placeholder">🎬</div>`;
+
+            card.innerHTML = `${working ? '' : `<button class="btn-del" onclick="deleteVideo(${i})">×</button>`}
+                ${media}
+                <div class="info"><div class="name">${f.original}</div>
+                    <div class="status ${sc}" id="vidStatus-${f.id}">${st}</div></div>
+                ${working ? `<div class="card-progress"><div class="progress-bar"><div class="fill" id="vidFill-${f.id}" style="width:${f.percent}%"></div></div></div>
+                    <div class="actions"><button class="btn btn-danger" onclick="cancelVideo(${i})">✖ Batalkan</button></div>` : ''}
+                ${f.status === 'done' && f.outputId ? `<div class="actions">
+                    <button class="btn btn-success" onclick="location.href=dlUrl('video','${f.outputId}','${esc(f.original)}')">⬇ Download</button>
+                </div>` : ''}
+                ${f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryVideo(${i})">🔄 Retry</button></div>` : ''}`;
+            grid.appendChild(card);
+        });
+    }
+
+    function renderVideoStats() {
+        document.getElementById('statsVideo').style.display = 'flex';
+        document.getElementById('totalCountVideo').textContent = videoFiles.length;
+        document.getElementById('doneCountVideo').textContent = videoFiles.filter(f => f.status === 'done').length;
+        document.getElementById('pendingCountVideo').textContent =
+            videoFiles.filter(f => ['pending', 'queued', 'running'].includes(f.status)).length;
+        const done = videoFiles.filter(f => f.status === 'done');
+        const saved = done.reduce((s, f) => s + ((f.sizeBefore || 0) - (f.sizeAfter || 0)), 0);
+        document.getElementById('savedVideo').textContent = done.length ? saved.toFixed(1) + 'MB' : '—';
+    }
+
+    function refreshVideoBatchBar() {
+        const bar = document.getElementById('batchActionsVideo');
+        bar.style.display = videoOutputs.length ? 'flex' : 'none';
+        document.getElementById('batchCountVideo').textContent = videoOutputs.length + ' video siap didownload';
+    }
+
+    async function cancelVideo(i) {
+        const f = videoFiles[i];
+        if (!f.jobId) return;
+        await fetch('/video/cancel/' + f.jobId, { method: 'POST' });
+        showToast('Membatalkan encode...', 'success');
+    }
+
+    async function deleteVideo(i) {
+        const f = videoFiles[i];
+        if (f.outputId) {
+            videoOutputs = videoOutputs.filter(o => o !== f.outputId);
+            fetch('/video/delete-output/' + f.outputId, { method: 'POST' });
+        }
+        videoFiles.splice(i, 1);
+        renderVideo(); renderVideoStats(); refreshVideoBatchBar();
+    }
+
+    function retryVideo(i) {
+        const f = videoFiles[i];
+        f.status = 'pending'; f.error = null; f.percent = 0; f.jobId = null;
+        renderVideo(); renderVideoStats(); processAllVideo();
+    }
+
+    async function clearAllVideo() {
+        if (!confirm('Hapus semua video?')) return;
+        await fetch('/video/clear', { method: 'POST' });
+        videoFiles = []; videoOutputs = [];
+        renderVideo(); renderVideoStats(); refreshVideoBatchBar();
+        showToast('Semua video dihapus', 'success');
+    }
+
+    function resetAllVideo() {
+        fetch('/video/clear', { method: 'POST' });
+        videoFiles = []; videoOutputs = [];
+        renderVideo(); renderVideoStats(); refreshVideoBatchBar();
+        document.getElementById('statsVideo').style.display = 'none'; fiVideo.value = '';
     }
     </script>
 </body>
