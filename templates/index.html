@@ -37,6 +37,7 @@
         .tab.active[data-tab="resize"] { color: var(--accent-green); border-color: var(--accent-green); }
         .tab.active[data-tab="retouch"] { color: #F59E0B; border-color: #F59E0B; }
         .tab.active[data-tab="video"] { color: #EC4899; border-color: #EC4899; }
+        .tab.active[data-tab="convert"] { color: #06B6D4; border-color: #06B6D4; }
 
         /* Layout */
         .main { display: flex; height: calc(100vh - 110px); }
@@ -76,7 +77,7 @@
         .dropzone p { color: var(--muted); font-size: 14px; }
         .dropzone p span { color: var(--accent-blue); text-decoration: underline; }
         .dropzone .hint { font-size: 12px; color: #475569; margin-top: 8px; }
-        #fileInput, #fileInputUpscale, #fileInputResize { display: none; }
+        #fileInput, #fileInputUpscale, #fileInputResize, #fileInputRetouch, #fileInputVideo, #fileInputConvert { display: none; }
 
         /* Stats */
         .stats { display: flex; gap: 12px; margin-top: 16px; font-size: 13px; color: var(--muted); }
@@ -182,6 +183,7 @@
         <div class="tab" data-tab="resize">📐 Resize & Compress</div>
         <div class="tab" data-tab="retouch">✨ Retouch</div>
         <div class="tab" data-tab="video">🎬 Video Downscale</div>
+        <div class="tab" data-tab="convert">🔄 Convert (HEIC→JPG)</div>
     </div>
 
     <!-- Main layout -->
@@ -254,6 +256,31 @@
                     ℹ️ Upscale menggunakan RealESRGAN (auto GPU/CPU).
                 </p>
             </div>
+            <!-- Convert settings -->
+            <div class="sidebar-section" id="settings-convert" style="display:none">
+                <h3>🔄 Convert Settings</h3>
+                <label>Format Output</label>
+                <select id="convertTargetFormat">
+                    <option value="jpg" selected>JPG — Kompatibel Semua Platform</option>
+                    <option value="png">PNG — Lossless / Transparan</option>
+                    <option value="webp">WEBP — Modern & Ukuran Kecil</option>
+                </select>
+                <div id="convertQualityGroup">
+                    <label>Kualitas Gambar</label>
+                    <div class="range-wrap">
+                        <input type="range" id="convertQuality" min="60" max="100" value="92">
+                        <span class="range-val" id="convertQualityVal">92%</span>
+                    </div>
+                </div>
+                <label style="margin-top:16px">Metadata EXIF (Info Kamera/GPS)</label>
+                <div class="radio-group" style="flex-direction:column; gap:8px;">
+                    <label><input type="radio" name="convertExif" value="strip" checked> Hapus EXIF (Privasi & Ramping)</label>
+                    <label><input type="radio" name="convertExif" value="keep"> Pertahankan EXIF</label>
+                </div>
+                <p style="font-size:11px; color:#475569; margin-top:12px;">
+                    ℹ️ Otomatis memperbaiki rotasi foto iPhone (EXIF Orientation) & mengonversi profil warna Apple Display P3 ke sRGB agar warna tidak pucat.
+                </p>
+            </div>
             <!-- Video settings -->
             <div class="sidebar-section" id="settings-video" style="display:none">
                 <h3>🎬 Video Settings</h3>
@@ -312,6 +339,7 @@
                         <button class="btn btn-outline" onclick="sendBatchTo('bg', 'upscale')">🔍 Upscale</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('bg', 'resize')">📐 Resize</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('bg', 'retouch')">✨ Retouch</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('bg', 'convert')">🔄 Convert</button>
                     </div>
                     <button class="btn btn-danger" onclick="clearAll()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAll()">🔄 Upload Lagi</button>
@@ -344,6 +372,7 @@
                         <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'bg')">🎨 Remove BG</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'resize')">📐 Resize</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'retouch')">✨ Retouch</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('upscale', 'convert')">🔄 Convert</button>
                     </div>
                     <button class="btn btn-danger" onclick="clearAllUpscale()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAllUpscale()">🔄 Upload Lagi</button>
@@ -368,6 +397,7 @@
                         <button class="btn btn-outline" onclick="sendBatchTo('resize', 'bg')">🎨 Remove BG</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('resize', 'upscale')">🔍 Upscale</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('resize', 'retouch')">✨ Retouch</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('resize', 'convert')">🔄 Convert</button>
                     </div>
                     <button class="btn btn-danger" onclick="clearAllResize()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAllResize()">🔄 Upload Lagi</button>
@@ -398,11 +428,42 @@
                         <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'bg')">🎨 Remove BG</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'upscale')">🔍 Upscale</button>
                         <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'resize')">📐 Resize</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('retouch', 'convert')">🔄 Convert</button>
                     </div>
                     <button class="btn btn-danger" onclick="clearAllRetouch()">🗑 Hapus Semua</button>
                     <button class="btn btn-outline" onclick="resetAllRetouch()">🔄 Upload Lagi</button>
                 </div>
                 <div class="empty" id="emptyStateRetouch">Upload foto untuk retouch kulit natural.</div>
+            </div>
+
+            <!-- Convert Panel -->
+            <div class="panel" id="panel-convert">
+                <div class="dropzone" id="dropzone-convert">
+                    <div class="icon">🔄</div>
+                    <p>Drag & drop foto iPhone (HEIC) atau gambar lain, atau <span>pilih file</span></p>
+                    <p class="hint">HEIC, HEIF, JPG, PNG, WEBP — Max {{ max_files }} file, {{ max_mb }}MB per file</p>
+                </div>
+                <input type="file" id="fileInputConvert" multiple accept=".heic,.heif,.jpg,.jpeg,.png,.webp">
+                <div class="stats" id="statsConvert" style="display:none">
+                    <div class="stat">📁 Total: <strong id="totalCountConvert">0</strong></div>
+                    <div class="stat">✅ Selesai: <strong id="doneCountConvert">0</strong></div>
+                    <div class="stat">⏳ Pending: <strong id="pendingCountConvert">0</strong></div>
+                </div>
+                <div class="file-grid" id="fileGridConvert"></div>
+                <div class="batch-actions" id="batchActionsConvert" style="display:none">
+                    <span class="count" id="batchCountConvert">0 file siap didownload</span>
+                    <button class="btn btn-success" onclick="downloadAllConvert()">⬇ Download Semua (ZIP)</button>
+                    <div class="batch-transfer-group">
+                        <span style="font-size:12px; color:var(--muted); font-weight:500;">➡️ Kirim Semua ke:</span>
+                        <button class="btn btn-outline" onclick="sendBatchTo('convert', 'bg')">🎨 Remove BG</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('convert', 'upscale')">🔍 Upscale</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('convert', 'resize')">📐 Resize</button>
+                        <button class="btn btn-outline" onclick="sendBatchTo('convert', 'retouch')">✨ Retouch</button>
+                    </div>
+                    <button class="btn btn-danger" onclick="clearAllConvert()">🗑 Hapus Semua</button>
+                    <button class="btn btn-outline" onclick="resetAllConvert()">🔄 Upload Lagi</button>
+                </div>
+                <div class="empty" id="emptyStateConvert">Upload foto iPhone (.HEIC) atau format lain untuk dikonversi ke JPG / PNG / WEBP.</div>
             </div>
 
             <!-- Video Panel -->
@@ -953,7 +1014,7 @@
     // ═══════════════════════════════════════
     // SHARED: PIPELINE (kirim hasil ke tab lain)
     // ═══════════════════════════════════════
-    const TAB_LABEL = { bg: 'Remove BG', upscale: 'Upscale', resize: 'Resize', retouch: 'Retouch' };
+    const TAB_LABEL = { bg: 'Remove BG', upscale: 'Upscale', resize: 'Resize', retouch: 'Retouch', convert: 'Convert Format' };
 
     async function sendTo(fromTab, outputId, original, toTab) {
         showLoading('Mengirim ke ' + TAB_LABEL[toTab] + '...');
@@ -982,6 +1043,10 @@
                 retouchFiles.push({ id: data.id, original: data.original, status: 'pending', outputId: null, faces: 0 });
                 renderRetouch(); renderRetouchStats(); processAllRetouch();
                 showToast('Foto dikirim ke Retouch', 'success');
+            } else if (toTab === 'convert') {
+                convertFiles.push({ id: data.id, original: data.original, status: 'pending', outputId: null });
+                renderConvert(); renderConvertStats(); processAllConvert();
+                showToast('Foto dikirim ke Convert Format', 'success');
             }
         } catch (err) { hideLoading(); showToast(err.message, 'error'); }
     }
@@ -997,6 +1062,8 @@
                 .flatMap(f => f.outputs.map(o => ({ output_id: o.output_id, original: f.original + '_' + o.label })));
         } else if (fromTab === 'retouch') {
             items = retouchFiles.filter(f => f.status === 'done' && f.outputId).map(f => ({ output_id: f.outputId, original: f.original }));
+        } else if (fromTab === 'convert') {
+            items = convertFiles.filter(f => f.status === 'done' && f.outputId).map(f => ({ output_id: f.outputId, original: f.original }));
         }
 
         if (!items.length) {
@@ -1040,6 +1107,11 @@
                     retouchFiles.push({ id: item.id, original: item.original, status: 'pending', outputId: null, faces: 0 });
                 }
                 renderRetouch(); renderRetouchStats(); processAllRetouch();
+            } else if (toTab === 'convert') {
+                for (const item of data.transferred) {
+                    convertFiles.push({ id: item.id, original: item.original, status: 'pending', outputId: null });
+                }
+                renderConvert(); renderConvertStats(); processAllConvert();
             }
 
             showToast(data.transferred.length + ' file berhasil dikirim ke ' + TAB_LABEL[toTab] + '!', 'success');
@@ -1071,10 +1143,11 @@
     // ═══════════════════════════════════════
     // SHARED: DOWNLOAD ZIP
     // ═══════════════════════════════════════
-    async function fetchZip(url, ids, filename) {
+    async function fetchZip(url, ids, filename, extra) {
         if (!ids.length) return;
         try {
-            const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ output_ids: ids }) });
+            const payload = Object.assign({ output_ids: ids }, extra || {});
+            const res = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             if (!res.ok) throw new Error('Download gagal');
             const blob = await res.blob();
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -1203,7 +1276,196 @@
     }
 
     // ═══════════════════════════════════════
-    // TAB 5: VIDEO DOWNSCALE
+    // TAB 5: CONVERT FORMAT (HEIC -> JPG/PNG/WEBP)
+    // ═══════════════════════════════════════
+    const dzConv = document.getElementById('dropzone-convert');
+    const fiConvert = document.getElementById('fileInputConvert');
+    let convertFiles = [], convertOutputs = [];
+
+    document.getElementById('convertQuality').addEventListener('input', e => {
+        document.getElementById('convertQualityVal').textContent = e.target.value + '%';
+    });
+    document.getElementById('convertTargetFormat').addEventListener('change', e => {
+        // PNG bersifat lossless, jadi slider kualitas hanya relevan untuk JPG & WEBP
+        document.getElementById('convertQualityGroup').style.display =
+            e.target.value === 'png' ? 'none' : 'block';
+    });
+
+    dzConv.addEventListener('click', () => fiConvert.click());
+    dzConv.addEventListener('dragover', e => { e.preventDefault(); dzConv.classList.add('dragover'); });
+    dzConv.addEventListener('dragleave', () => dzConv.classList.remove('dragover'));
+    dzConv.addEventListener('drop', e => { e.preventDefault(); dzConv.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadConvert(e.dataTransfer.files); });
+    fiConvert.addEventListener('change', e => { if (e.target.files.length) uploadConvert(e.target.files); });
+
+    async function uploadConvert(fileList) {
+        showLoading('Mengupload file...');
+        const fd = new FormData();
+        for (let i = 0; i < fileList.length; i++) fd.append('photos', fileList[i]);
+        try {
+            const res = await fetch('/convert/upload', { method: 'POST', body: fd });
+            if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { throw new Error('Server error: ' + text.substring(0, 100)); }
+            if (data.error) throw new Error(data.error);
+            for (const f of data.accepted) {
+                convertFiles.push({ id: f.id, original: f.original, status: 'pending', outputId: null });
+            }
+            if (data.rejected.length) showToast(data.rejected.length + ' file ditolak', 'error');
+            renderConvert(); renderConvertStats(); processAllConvert();
+        } catch (err) { showToast(err.message, 'error'); }
+        hideLoading();
+    }
+
+    async function processAllConvert() {
+        const targetFormat = document.getElementById('convertTargetFormat').value;
+        const quality = parseInt(document.getElementById('convertQuality').value);
+        const keepExif = document.querySelector('input[name="convertExif"]:checked').value === 'keep';
+        const pending = convertFiles.filter(f => f.status === 'pending');
+        if (!pending.length) return;
+
+        showLoading('Mengonversi format ke ' + targetFormat.toUpperCase() + '...');
+        let done = 0;
+        for (const f of pending) {
+            try {
+                const res = await fetch('/convert/process/' + f.id, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_format: targetFormat, quality, keep_exif: keepExif })
+                });
+                if (res.status === 401 || res.redirected) { location.href = '/login'; return; }
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch (e) { throw new Error('Server error: ' + text.substring(0, 80)); }
+                if (data.status === 'ok') {
+                    f.status = 'done';
+                    f.outputId = data.output_id;
+                    f.origFormat = data.orig_format;
+                    f.targetFormat = data.target_format;
+                    f.resolution = data.resolution;
+                    f.sizeBefore = data.size_before_str;
+                    f.sizeAfter = data.size_after_str;
+                    if (!convertOutputs.includes(data.output_id)) convertOutputs.push(data.output_id);
+                } else {
+                    f.status = 'error';
+                    f.error = data.error;
+                }
+            } catch (err) {
+                f.status = 'error';
+                f.error = err.message;
+            }
+            done++;
+            showProgress(done / pending.length * 100);
+            renderConvertStats();
+            renderConvert();
+        }
+        hideLoading();
+        hideProgress();
+        document.getElementById('batchActionsConvert').style.display = convertOutputs.length ? 'flex' : 'none';
+        document.getElementById('batchCountConvert').textContent = convertOutputs.length + ' file siap didownload';
+    }
+
+    function renderConvert() {
+        const grid = document.getElementById('fileGridConvert');
+        const empty = document.getElementById('emptyStateConvert');
+        if (!convertFiles.length) {
+            grid.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        grid.innerHTML = '';
+        convertFiles.forEach((f, i) => {
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            const sc = f.status === 'done' ? 'done' : f.status === 'error' ? 'error' : 'pending';
+            const st = f.status === 'done'
+                ? `✅ ${f.origFormat} → ${f.targetFormat} · ${f.sizeBefore} → ${f.sizeAfter}`
+                : f.status === 'error'
+                    ? '❌ ' + (f.error || 'Error')
+                    : '⏳ Mengonversi...';
+            const src = f.status === 'done' && f.outputId
+                ? '/convert/preview/' + f.outputId
+                : '/convert/preview-input/' + f.id;
+            card.innerHTML = `<button class="btn-del" onclick="deleteConvert(${i})">×</button>
+                <img class="thumb" src="${src}" alt="${f.original}" onerror="this.style.display='none'">
+                <div class="info"><div class="name">${f.original}</div><div class="status ${sc}">${st}</div></div>
+                ${f.status === 'done' && f.outputId ? `<div class="actions">
+                    <button class="btn btn-primary" onclick="window.open('/convert/preview/${f.outputId}','_blank')">👁</button>
+                    <button class="btn btn-success" onclick="location.href=dlUrl('convert','${f.outputId}','${esc(f.original)}')">⬇</button>
+                    <button class="btn btn-outline" onclick="sendTo('convert','${f.outputId}','${esc(f.original)}','bg')">🎨 Remove BG</button>
+                    <button class="btn btn-outline" onclick="sendTo('convert','${f.outputId}','${esc(f.original)}','upscale')">→ Upscale</button>
+                    <button class="btn btn-outline" onclick="sendTo('convert','${f.outputId}','${esc(f.original)}','resize')">→ Resize</button>
+                    <button class="btn btn-outline" onclick="sendTo('convert','${f.outputId}','${esc(f.original)}','retouch')">→ Retouch</button>
+                </div>` : f.status === 'error' ? `<div class="actions"><button class="btn btn-danger" onclick="retryConvert(${i})">🔄 Retry</button></div>` : ''}`;
+            grid.appendChild(card);
+        });
+    }
+
+    function renderConvertStats() {
+        document.getElementById('statsConvert').style.display = convertFiles.length ? 'flex' : 'none';
+        document.getElementById('totalCountConvert').textContent = convertFiles.length;
+        document.getElementById('doneCountConvert').textContent = convertFiles.filter(f => f.status === 'done').length;
+        document.getElementById('pendingCountConvert').textContent = convertFiles.filter(f => f.status === 'pending').length;
+    }
+
+    async function deleteConvert(i) {
+        const f = convertFiles[i];
+        if (f.outputId) {
+            convertOutputs = convertOutputs.filter(o => o !== f.outputId);
+            fetch('/convert/delete-output/' + f.outputId, { method: 'POST' });
+        }
+        convertFiles.splice(i, 1);
+        renderConvert();
+        renderConvertStats();
+        document.getElementById('batchActionsConvert').style.display = convertOutputs.length ? 'flex' : 'none';
+    }
+
+    function retryConvert(i) {
+        const f = convertFiles[i];
+        f.status = 'pending';
+        f.error = null;
+        renderConvert();
+        renderConvertStats();
+        processAllConvert();
+    }
+
+    async function downloadAllConvert() {
+        const extra = {};
+        if (_keepOrigName) {
+            const nameMap = {};
+            for (const f of convertFiles) {
+                if (f.outputId) nameMap[f.outputId] = f.original;
+            }
+            extra.name_map = nameMap;
+        }
+        await fetchZip('/convert/download-all', convertOutputs, 'zaneva_converted.zip', extra);
+    }
+
+    async function clearAllConvert() {
+        if (!confirm('Hapus semua file?')) return;
+        await fetch('/convert/clear', { method: 'POST' });
+        convertFiles = [];
+        convertOutputs = [];
+        renderConvert();
+        renderConvertStats();
+        document.getElementById('batchActionsConvert').style.display = 'none';
+        showToast('Semua file dihapus', 'success');
+    }
+
+    function resetAllConvert() {
+        fetch('/convert/clear', { method: 'POST' });
+        convertFiles = [];
+        convertOutputs = [];
+        renderConvert();
+        renderConvertStats();
+        document.getElementById('batchActionsConvert').style.display = 'none';
+        document.getElementById('statsConvert').style.display = 'none';
+        fiConvert.value = '';
+    }
+
+    // ═══════════════════════════════════════
+    // TAB 6: VIDEO DOWNSCALE
     // ═══════════════════════════════════════
     // Beda dari tab gambar: encode makan menit, jadi tidak memakai overlay
     // loading global. Tiap kartu punya progress bar sendiri yang di-poll dari

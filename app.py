@@ -53,18 +53,19 @@ APP_VERSION = "1.1.1"
 TMP_BASE.mkdir(parents=True, exist_ok=True)
 
 # ─── Import modules ───
-from modules import bg_remover, upscaler, resizer, retoucher, video_resizer
+from modules import bg_remover, upscaler, resizer, retoucher, video_resizer, converter
 
 # Aturan upload per tab. Tab gambar tetap memakai batas lama persis; video
 # punya slot sendiri supaya menaikkan limit video tidak ikut melonggarkan
 # tab foto (dulu ALLOWED_EXT/MAX_FILE_MB dipakai bersama semua tab).
 _IMG_RULE = {"ext": ALLOWED_EXT, "max_mb": MAX_FILE_MB, "max_files": MAX_FILES,
-             "reject": "Format tidak didukung (JPG/PNG/WEBP)"}
+             "reject": "Format tidak didukung (JPG/PNG/WEBP/HEIC)"}
 TAB_UPLOAD = {
     "bg": _IMG_RULE,
     "upscale": _IMG_RULE,
     "resize": _IMG_RULE,
     "retouch": _IMG_RULE,
+    "convert": _IMG_RULE,
     "video": {"ext": video_resizer.ALLOWED_EXT, "max_mb": MAX_VIDEO_MB,
               "max_files": MAX_VIDEO_FILES,
               "reject": "Format tidak didukung (MP4/MOV/MKV/WEBM)"},
@@ -248,7 +249,7 @@ def transfer():
     to_tab = data.get("to_tab")
     output_id = data.get("output_id")
     original = data.get("original") or output_id
-    valid = {"bg", "upscale", "resize", "retouch"}
+    valid = {"bg", "upscale", "resize", "retouch", "convert"}
     if from_tab not in valid or to_tab not in valid or from_tab == to_tab:
         return jsonify({"error": "Tab tidak valid."}), 400
     if not output_id:
@@ -271,7 +272,7 @@ def transfer_batch():
     from_tab = data.get("from_tab")
     to_tab = data.get("to_tab")
     items = data.get("items") or []
-    valid = {"bg", "upscale", "resize", "retouch"}
+    valid = {"bg", "upscale", "resize", "retouch", "convert"}
     if from_tab not in valid or to_tab not in valid or from_tab == to_tab:
         return jsonify({"error": "Tab tidak valid."}), 400
     if not items:
@@ -917,6 +918,138 @@ def video_clear():
             p.unlink(missing_ok=True)
             count += 1
     return jsonify({"status": "ok", "deleted_count": count})
+
+
+# ══════════════════════════════════════════════
+# TAB 6 — Convert Format (HEIC -> JPG/PNG/WEBP)
+# ══════════════════════════════════════════════
+
+@app.route("/convert/upload", methods=["POST"])
+@login_required
+def convert_upload():
+    return handle_upload("convert")
+
+
+@app.route("/convert/process/<file_id>", methods=["POST"])
+@login_required
+def convert_process(file_id):
+    work = get_work_dir("convert")
+    in_path = work / "input" / file_id
+    if not in_path.exists():
+        return jsonify({"error": "File tidak ditemukan."}), 404
+
+    data = request.json if request.is_json else {}
+    target_format = data.get("target_format", "jpg")
+    quality = int(data.get("quality", converter.DEFAULT_QUALITY))
+    keep_exif = bool(data.get("keep_exif", False))
+    bg_color = data.get("bg_color", "#FFFFFF")
+
+    out_dir = work / "output"
+    result = converter.process_image(
+        in_path, out_dir,
+        target_format=target_format,
+        quality=quality,
+        keep_exif=keep_exif,
+        bg_color=bg_color,
+    )
+    return jsonify(result), 200 if result["status"] == "ok" else 500
+
+
+@app.route("/convert/preview-input/<file_id>")
+@login_required
+def convert_preview_input(file_id):
+    p = get_work_dir("convert") / "input" / file_id
+    if not p.exists():
+        abort(404)
+    # Browser seperti Chrome/Edge tidak bisa render .heic langsung di <img>,
+    # jadi kita buat thumbnail JPEG di memori bila input berformat HEIC/HEIF.
+    if p.suffix.lower() in {".heic", ".heif"}:
+        try:
+            from PIL import Image, ImageOps
+            img = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
+            img.thumbnail((600, 600))
+            buf = BytesIO()
+            img.save(buf, format="JPEG", quality=80)
+            buf.seek(0)
+            return send_file(buf, mimetype="image/jpeg")
+        except Exception:
+            pass
+    return send_file(p)
+
+
+@app.route("/convert/preview/<output_id>")
+@login_required
+def convert_preview(output_id):
+    p = get_work_dir("convert") / "output" / output_id
+    if not p.exists():
+        abort(404)
+    return send_file(p)
+
+
+@app.route("/convert/download/<output_id>")
+@login_required
+def convert_download(output_id):
+    p = get_work_dir("convert") / "output" / output_id
+    if not p.exists():
+        abort(404)
+    dl_name = request.args.get("name", output_id)
+    return send_file(p, as_attachment=True, download_name=dl_name)
+
+
+@app.route("/convert/download-all", methods=["POST"])
+@login_required
+def convert_download_all():
+    work = get_work_dir("convert")
+    data = request.json or {}
+    ids = data.get("output_ids", [])
+    name_map = data.get("name_map") or {}
+    if not ids:
+        return jsonify({"error": "Tidak ada file."}), 400
+
+    zip_id = uuid.uuid4().hex
+    zip_path = work / f"{zip_id}.zip"
+    used_names = set()
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for oid in ids:
+            p = work / "output" / oid
+            if not p.exists():
+                continue
+            raw_name = Path(name_map.get(oid) or oid).name
+            stem = Path(raw_name).stem or "image"
+            ext = p.suffix.lower()
+            arcname = f"{stem}{ext}"
+            idx = 2
+            while arcname.lower() in used_names:
+                arcname = f"{stem}_{idx}{ext}"
+                idx += 1
+            used_names.add(arcname.lower())
+            zf.write(p, arcname=arcname)
+
+    return send_file(zip_path, as_attachment=True, download_name="zaneva_converted.zip",
+                     mimetype="application/zip")
+
+
+@app.route("/convert/clear", methods=["POST"])
+@login_required
+def convert_clear():
+    work = get_work_dir("convert")
+    count = 0
+    for folder in ["input", "output"]:
+        for p in (work / folder).iterdir():
+            p.unlink(missing_ok=True)
+            count += 1
+    return jsonify({"status": "ok", "deleted_count": count})
+
+
+@app.route("/convert/delete-output/<output_id>", methods=["POST"])
+@login_required
+def convert_delete_output(output_id):
+    p = get_work_dir("convert") / "output" / output_id
+    if p.exists():
+        p.unlink()
+        return jsonify({"status": "ok"})
+    return jsonify({"error": "File tidak ditemukan."}), 404
 
 
 # ─── Entry point ───
